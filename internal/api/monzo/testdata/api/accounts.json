@@ -1,0 +1,38 @@
+{
+    "accounts": [
+        {
+            "id": "acc_56789",
+            "closed": false,
+            "created": "2020-02-02T02:02:22.222Z",
+            "description": "user_123456",
+            "type": "uk_retail",
+            "currency": "GBP",
+            "legal_entity": "monzo_uk",
+            "country_code": "GB",
+            "country_code_alpha3": "GBR",
+            "owner_type": "personal",
+            "owners": [
+                {
+                    "user_id": "user_123456",
+                    "preferred_name": "John Smith",
+                    "preferred_first_name": "John"
+                }
+            ],
+            "account_number": "12345678",
+            "sort_code": "040004",
+            "payment_details": {
+                "locale_uk": {
+                    "account_number": "12345678",
+                    "sort_code": "040004"
+                },
+                "iban": {
+                    "unformatted": "...",
+                    "formatted": "...",
+                    "bic": "...",
+                    "usage_description": "...",
+                    "usage_description_web": "..."
+                }
+            }
+        }
+    ]
+}

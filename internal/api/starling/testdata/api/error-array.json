@@ -1,0 +1,7 @@
+{
+    "errors": [
+        {"message":"MAX_TRANSACTION_TIMESTAMP_must not be null"},
+        {"message":"MIN_TRANSACTION_TIMESTAMP_must not be null"}
+    ],
+    "success": false
+}

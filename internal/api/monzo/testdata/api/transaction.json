@@ -1,0 +1,52 @@
+{
+    "transaction": {
+            "id": "tx_000099999999",
+            "created": "2025-01-25T10:00:00Z",
+            "description": "TfL Travel Charge      TFL.gov.uk/CP GBR",
+            "amount": -280,
+            "fees": {},
+            "currency": "GBP",
+            "merchant": {
+              "id": "merch_00009lnnnnnn",
+              "name": "Transport for London",
+              "category": "transport",
+              "online": true,
+              "atm": false
+            },
+            "merchant_feedback_uri": "",
+            "notes": "Travel charge for Friday, 24 Jan",
+            "metadata": {
+              "coin_jar_transaction": "tx_00008888888",
+              "mcc": "",
+              "notes": "Travel charge for Friday, 24 Jan",
+              "tokenization_method": "apple_pay"
+            },
+            "labels": null,
+            "attachments": null,
+            "international": null,
+            "category": "transport",
+            "categories": {
+              "transport": -280
+            },
+            "is_load": false,
+            "settled": "2025-01-25T11:00:00Z",
+            "local_amount": -280,
+            "local_currency": "GBP",
+            "updated": "2025-01-25T12:00:00Z",
+            "account_id": "acc_0000912345",
+            "user_id": "user_0000954321",
+            "counterparty": {},
+            "scheme": "mastercard",
+            "dedupe_id": "",
+            "originator": false,
+            "include_in_spending": true,
+            "can_be_excluded_from_breakdown": true,
+            "can_be_made_subscription": true,
+            "can_split_the_bill": true,
+            "can_add_to_tab": true,
+            "can_match_transactions_in_categorization": true,
+            "amount_is_pending": false,
+            "atm_fees_detailed": null,
+            "parent_account_id": ""
+    }
+}

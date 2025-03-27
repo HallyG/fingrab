@@ -1,0 +1,22 @@
+name: Pull Request Workflow
+
+on:
+  pull_request:
+    branches: [master]
+    types:
+      - opened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linter:
+    uses: ./.github/workflows/linter.yaml
+  checks:
+    uses: ./.github/workflows/checks.yaml
+  container-build:
+    if: github.actor == 'hallyg'
+    needs: [linter, checks]
+    uses: ./.github/workflows/container-build.yaml

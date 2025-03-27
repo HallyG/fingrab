@@ -1,0 +1,26 @@
+{
+    "pots": [
+        {
+            "id": "pot_00009",
+            "name": "holiday",
+            "style": "piggy_bank",
+            "balance": 0,
+            "currency": "GBP",
+            "goal_amount": 1000,
+            "type": "default",
+            "product_id": "default",
+            "current_account_id": "acc_12345",
+            "cover_image_url": "",
+            "isa_wrapper": "",
+            "round_up": false,
+            "round_up_multiplier": null,
+            "is_tax_pot": false,
+            "created": "2019-01-01T15:14:14.144Z",
+            "updated": "2020-01-01T15:14:14.144Z",
+            "deleted": true,
+            "locked": false,
+            "available_for_bills": false,
+            "has_virtual_cards": false
+          }
+    ]
+}

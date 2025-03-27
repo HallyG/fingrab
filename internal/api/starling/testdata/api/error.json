@@ -1,0 +1,4 @@
+{
+    "error":"invalid_token",
+    "error_description":"No access token provided in request. `Header: Authorization` must be set "
+}

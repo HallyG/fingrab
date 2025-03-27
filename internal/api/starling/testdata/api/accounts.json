@@ -1,0 +1,12 @@
+{
+    "accounts": [
+        {
+            "accountUid": "00000000-0000-4000-0000-000000000033",
+            "accountType": "PRIMARY",
+            "defaultCategory": "00000000-0000-4000-0000-000000000099",
+            "currency": "GBP",
+            "createdAt": "2020-02-02T02:02:22.222Z",
+            "name": "Personal"
+        }
+    ]
+}

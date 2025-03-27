@@ -1,0 +1,29 @@
+version: "2"
+run:
+  go: '1.24.2'
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+  timeout: 3m
+linters:
+  default: all
+  disable:
+    - depguard
+    - err113
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - godox
+    - gosec
+    - lll
+    - mnd
+    - paralleltest
+    - revive
+    - tagliatelle
+    - tparallel
+    - varnamelen
+    - wrapcheck
+    - cyclop
+    - gochecknoinits
+    - ireturn
+    - recvcheck
+    - musttag
