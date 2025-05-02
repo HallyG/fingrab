@@ -1,9 +1,10 @@
-package fingrab
+package exporter
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -20,12 +21,19 @@ const (
 )
 
 var (
-	exportCmd = &cobra.Command{
+	ExportCmd = &cobra.Command{
 		Use:   "export",
 		Short: "Export transactions between two dates",
 		Long:  "Export banking transactions for the specified date range from supported providers",
 	}
 )
+
+func init() {
+	for _, exportType := range export.All() {
+		cmd := newExportCommand(exportType)
+		ExportCmd.AddCommand(cmd)
+	}
+}
 
 type exportOptions struct {
 	StartDateStr string
@@ -45,7 +53,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 		Short: "Export transactions from " + name,
 		Long:  `Export banking transactions for the specified date range from supported providers.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runExport(cmd.Context(), opts, exporterType)
+			return runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
 		},
 	}
 
@@ -61,7 +69,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	return cmd
 }
 
-func runExport(ctx context.Context, opts *exportOptions, exporterType export.ExportType) error {
+func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exporterType export.ExportType) error {
 	startDate, err := parseDate(opts.StartDateStr)
 	if err != nil {
 		return fmt.Errorf("invalid start date: %w", err)
@@ -102,7 +110,7 @@ func runExport(ctx context.Context, opts *exportOptions, exporterType export.Exp
 		Format:    format.FormatType(opts.Format),
 	}
 
-	formatter, err := format.NewFormatter(exportOpts.Format, os.Stdout)
+	formatter, err := format.NewFormatter(exportOpts.Format, output)
 	if err != nil {
 		return fmt.Errorf("failed to create formatter: %w", err)
 	}
