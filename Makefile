@@ -9,9 +9,9 @@ PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
 GO_CMD ?= go
-GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab.BuildShortSHA=$(BUILD_VERSION)'
-GO_PKG_MAIN := ${PWD}/cmd/
-GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/...
+GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA=$(BUILD_VERSION)'
+GO_PKG_MAIN := ${PWD}/cmd/fingrab/
+GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/fingrab/...
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out
 GO_COVERAGE_TEXT_FILE := $(BUILD_DIR)/cover.txt
 GO_COVERAGE_HTML_FILE := $(BUILD_DIR)/cover.html

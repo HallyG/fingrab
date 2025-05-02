@@ -14,10 +14,10 @@ COPY go.mod go.sum ./
 
 RUN go mod download
 
-COPY cmd cmd
+COPY cmd/fingrab cmd/fingrab
 COPY internal internal
 
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app/fingrab -trimpath -mod=readonly -ldflags="${GO_LDFLAGS}" ./cmd 
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app/fingrab -trimpath -mod=readonly -ldflags="${GO_LDFLAGS}" ./cmd/fingrab
 
 # Runtime
 FROM gcr.io/distroless/base-debian12@sha256:27769871031f67460f1545a52dfacead6d18a9f197db77110cfc649ca2a91f44

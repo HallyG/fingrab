@@ -1,10 +1,12 @@
-package fingrab
+package root
 
 import (
+	"context"
+	"io"
 	"os"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/cmd/fingrab/exporter"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -15,8 +17,16 @@ var (
 	RootCmd = &cobra.Command{
 		Use:               "fingrab",
 		Short:             "Financial data exporter",
-		Long:              `A powerful tool to export transactions from various banks.`,
+		Long:              `A CLI for exporting financial data from various banks.`,
 		PersistentPreRunE: setupLogger,
+	}
+	VersionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Print the fingrab version",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, _ []string) {
+			cmd.Printf("%s\n", BuildShortSHA)
+		},
 	}
 )
 
@@ -28,13 +38,15 @@ func init() {
 
 	RootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
-	RootCmd.AddCommand(versionCmd)
-	RootCmd.AddCommand(exportCmd)
+	RootCmd.AddCommand(VersionCmd)
+	RootCmd.AddCommand(exporter.ExportCmd)
+}
 
-	for _, exportType := range export.All() {
-		cmd := newExportCommand(exportType)
-		exportCmd.AddCommand(cmd)
-	}
+func Main(ctx context.Context, args []string, output io.Writer) error {
+	RootCmd.SetOut(output)
+	RootCmd.SetArgs(args[1:])
+
+	return RootCmd.ExecuteContext(ctx)
 }
 
 func setupLogger(cmd *cobra.Command, _ []string) error {

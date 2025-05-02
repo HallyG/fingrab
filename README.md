@@ -9,6 +9,7 @@ Currently supports: [Monzo](https://monzo.com/), and [Starling](https://www.star
 ## Table of Contents
 - [Disclaimer](#disclaimer)
 - [Installation](#installation)
+  - [Install via Go](#install-via-go)
   - [From Source](#from-source)
   - [Using Docker](#using-docker)
 - [Usage](#usage)
@@ -27,8 +28,15 @@ This project is **not affiliated with or endorsed by** Starling Bank or Monzo. I
 
 ## Installation
 
+### Install via Go
+1. Ensure you have [Go 1.24](https://go.dev/doc/install) or later installed.
+2. Install the clu:
+   ```bash
+   go install github.com/HallyG/fingrab/cmd/fingrab@latest
+   ```
+
 ### From Source
-1. Ensure you have Go 1.24 or later installed
+1. Ensure you have [Go 1.24](https://go.dev/doc/install) or later installed.
 2. Clone the repository:
    ```bash
    git clone https://github.com/hallyg/fingrab.git
@@ -40,25 +48,27 @@ This project is **not affiliated with or endorsed by** Starling Bank or Monzo. I
    ```
 
 ### Using Docker
-```bash
-make docker/build
-```
+1. Ensure you have [Docker](https://docs.docker.com/get-started/get-docker/) installed.
+2. Build the docker image:
+   ```bash
+   make docker/build
+   ```
 
 ## Usage
 
 ### Obtaining API Tokens
 
 #### Monzo
-1. Go to [Monzo Developer Portal](https://developers.monzo.com/)
-2. Log in to your Monzo developer account
+1. Go to [Monzo Developer Portal](https://developers.monzo.com/).
+2. Log in to your Monzo developer account.
 3. Open the Monzo App and allow API Playground access to your account.
-4. Use the displayed access token
+4. Use the displayed access token.
 
 #### Starling
-1. Go to [Starling Developer Portal](https://developer.starlingbank.com/)
-2. Log in to your Starling developer account
-3. Create a new [personal access token](https://developer.starlingbank.com/personal/token)
-4. Use the generated access token
+1. Go to [Starling Developer Portal](https://developer.starlingbank.com/).
+2. Log in to your Starling developer account.
+3. Create a new [personal access token](https://developer.starlingbank.com/personal/token).
+4. Use the generated access token.
 
 ### Exporting Transactions
 
