@@ -32,7 +32,7 @@ This project is **not affiliated with or endorsed by** Starling Bank or Monzo. I
 1. Ensure you have [Go 1.24](https://go.dev/doc/install) or later installed.
 2. Install the clu:
    ```bash
-   go install github.com/HallyG/fingrab/cmd/fingrab@latest
+   go install github.com/HallyG/fingrab@latest
    ```
 
 ### From Source
