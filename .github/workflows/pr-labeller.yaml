@@ -1,4 +1,5 @@
 name: PR Labeller
+
 on:
   pull_request:
     types:
