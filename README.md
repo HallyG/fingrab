@@ -59,16 +59,16 @@ This project is **not affiliated with or endorsed by** Starling Bank or Monzo. I
 ### Obtaining API Tokens
 
 #### Monzo
-1. Go to [Monzo Developer Portal](https://developers.monzo.com/)
-2. Log in to your Monzo developer account
+1. Go to [Monzo Developer Portal](https://developers.monzo.com/).
+2. Log in to your Monzo developer account.
 3. Open the Monzo App and allow API Playground access to your account.
-4. Use the displayed access token
+4. Use the displayed access token.
 
 #### Starling
-1. Go to [Starling Developer Portal](https://developer.starlingbank.com/)
-2. Log in to your Starling developer account
-3. Create a new [personal access token](https://developer.starlingbank.com/personal/token)
-4. Use the generated access token
+1. Go to [Starling Developer Portal](https://developer.starlingbank.com/).
+2. Log in to your Starling developer account.
+3. Create a new [personal access token](https://developer.starlingbank.com/personal/token).
+4. Use the generated access token.
 
 ### Exporting Transactions
 
