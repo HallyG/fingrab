@@ -1,4 +1,5 @@
-name: "PR Labeller"
+name: PR Labeller
+
 on:
   pull_request:
     types:
@@ -12,6 +13,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     runs-on: ubuntu-24.04
     steps:
       - name: Label

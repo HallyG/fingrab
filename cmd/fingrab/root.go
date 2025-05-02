@@ -44,8 +44,6 @@ func setupLogger(cmd *cobra.Command, _ []string) error {
 		w.Out = os.Stderr
 		w.TimeFormat = time.RFC3339
 		w.PartsExclude = []string{"time", "level"}
-		// w.FormatFieldName = func(i interface{}) string { return "" }
-		// w.FormatFieldValue = func(i interface{}) string { return "" }
 	})
 
 	logger := zerolog.New(writer).
