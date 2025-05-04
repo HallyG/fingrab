@@ -11,6 +11,7 @@ import (
 
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/format"
+	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +63,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
-	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", formatOptions()))
+	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", sliceutil.ToDelimitedString(format.All())))
 
 	_ = cmd.MarkFlagRequired("start")
 
@@ -120,15 +121,4 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 
 func parseDate(str string) (time.Time, error) {
 	return time.Parse(timeFormat, str)
-}
-
-func formatOptions() string {
-	types := format.All()
-	strTypes := make([]string, len(types))
-
-	for i, t := range types {
-		strTypes[i] = string(t)
-	}
-
-	return strings.Join(strTypes, ", ")
 }
