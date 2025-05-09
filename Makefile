@@ -82,4 +82,4 @@ build:
 ## run: run the application	
 .PHONY: run
 run: build
-	@${BUILD_DIR}/${APP_NAME} version
+	@${BUILD_DIR}/${APP_NAME} --version
