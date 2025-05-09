@@ -19,14 +19,7 @@ var (
 		Short:             "Financial data exporter",
 		Long:              `A CLI for exporting financial data from various banks.`,
 		PersistentPreRunE: setupLogger,
-	}
-	VersionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print the fingrab version",
-		Args:  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf("%s\n", BuildShortSHA)
-		},
+		Version:           BuildShortSHA,
 	}
 )
 
@@ -38,7 +31,6 @@ func init() {
 
 	RootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
-	RootCmd.AddCommand(VersionCmd)
 	RootCmd.AddCommand(exporter.ExportCmd)
 }
 
