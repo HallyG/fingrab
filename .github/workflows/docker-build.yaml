@@ -8,6 +8,10 @@ on:
           required: false
           default: false
           type: boolean
+        tags:
+          description: 'Docker image tags (multiline string)'
+          required: false
+          type: string
 
 env:
   REGISTRY: ghcr.io
@@ -38,7 +42,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha
+            ${{ inputs.tags || 'type=sha' }}
       - name: Set up build cache
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
         with:

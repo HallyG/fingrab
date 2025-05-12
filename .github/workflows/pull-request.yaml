@@ -20,6 +20,7 @@ jobs:
     if: github.actor == 'hallyg'
     needs: [linter, checks]
     uses: ./.github/workflows/docker-build.yaml
-    env:
-      DOCKER_METADATA_TAGS: |
+    with:
+      tags: |
         type=raw,value=1.2.3
+        type=raw,value=sha
