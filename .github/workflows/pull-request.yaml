@@ -21,6 +21,6 @@ jobs:
     needs: [linter, checks]
     uses: ./.github/workflows/docker-build.yaml
     with:
-      tags: |
-        type=raw,value=1.2.3
-        type=sha
+    tags: |
+            type=raw,value=1.2.3
+            type=sha,format=short
