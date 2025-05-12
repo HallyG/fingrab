@@ -84,3 +84,8 @@ build:
 .PHONY: run
 run: build
 	@${BUILD_DIR}/${APP_NAME} --version
+
+## release/test: Test release
+.PHONY: release/test 
+release/test:
+	goreleaser release --snapshot --clean

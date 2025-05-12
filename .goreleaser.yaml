@@ -1,0 +1,53 @@
+version: 2
+
+project_name: fingrab
+
+builds:
+  - binary: "{{ .ProjectName }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    flags:
+      - -trimpath
+      - -mod=readonly
+    ldflags:
+      - -s -w -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildVersion={{.Version}} -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA={{.Commit}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+
+archives:
+  - formats: [tar.gz]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+dockers:
+  - use: buildx
+    image_templates:
+      - "ghcr.io/hallyg/{{ .ProjectName }}:{{ .Tag }}"
+    skip_push: true
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.description=A CLI for exporting financial data from various banks."
+      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+
+checksum:
+  name_template: "checksums.txt"
