@@ -23,4 +23,4 @@ jobs:
     with:
       tags: |
               type=raw,value=1.2.3
-              type=sha,format=short
+              type=sha
