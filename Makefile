@@ -3,13 +3,14 @@ DOCKER_IMAGE := hallyg/${APP_NAME}
 
 GIT_REF := $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short=8 --verify HEAD)
 BUILD_VERSION ?= $(GIT_REF)
+BUILD_SHORT_SHA := $(shell git rev-parse --short=8 --verify HEAD)
 BUILD_SHA := $(shell git rev-parse --verify HEAD)
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
 GO_CMD ?= go
-GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA=$(BUILD_VERSION)'
+GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA=$(BUILD_SHORT_SHA)' -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildVersion=$(BUILD_VERSION)'
 GO_PKG_MAIN := ${PWD}/main.go
 GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/fingrab/... 
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out

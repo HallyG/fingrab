@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 )
 
 var (
+	BuildVersion  = `(missing)`
 	BuildShortSHA = `(missing)`
 
 	RootCmd = &cobra.Command{
@@ -19,7 +21,7 @@ var (
 		Short:             "Financial data exporter",
 		Long:              `A CLI for exporting financial data from various banks.`,
 		PersistentPreRunE: setupLogger,
-		Version:           BuildShortSHA,
+		Version:           fmt.Sprintf("%s (%s)", BuildVersion, BuildShortSHA),
 	}
 )
 
@@ -53,6 +55,7 @@ func setupLogger(cmd *cobra.Command, _ []string) error {
 	logger := zerolog.New(writer).
 		With().
 		Timestamp().
+		Str("build.version", BuildShortSHA).
 		Str("build.sha", BuildShortSHA).
 		Logger()
 
