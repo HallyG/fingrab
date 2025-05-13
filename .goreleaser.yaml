@@ -2,6 +2,18 @@ version: 2
 
 project_name: fingrab
 
+env:
+  - REGISTRY=ghcr.io/hallyg
+  - DESCRIPTION=A CLI for exporting financial data from various banks.
+  - LICENSES=MIT
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+before:
+  hooks:
+    - go mod tidy # https://goreleaser.com/customization/builds/go/#go-modules
+
 builds:
   - binary: "{{ .ProjectName }}"
     env:
@@ -10,13 +22,15 @@ builds:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
     flags:
       - -trimpath
       - -mod=readonly
     ldflags:
       - -s -w -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildVersion={{.Version}} -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA={{.Commit}}
-    mod_timestamp: "{{ .CommitTimestamp }}"
-
+    mod_timestamp: "{{ .CommitTimestamp }}" # https://goreleaser.com/customization/builds/go/#reproducible-builds
 
 archives:
   - formats: [tar.gz]
@@ -28,26 +42,53 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
     format_overrides:
       - goos: windows
         formats: [zip]
 
+checksum:
+  name_template: "checksums.txt"
+
 dockers:
   - use: buildx
+    goos: linux
+    goarch: amd64
     image_templates:
-      - "ghcr.io/hallyg/{{ .ProjectName }}:{{ .Tag }}"
-    skip_push: true
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-amd64"
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.name={{.ProjectName}}"
-      - "--label=org.opencontainers.image.description=A CLI for exporting financial data from various banks."
-      - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=org.opencontainers.image.description={{.Env.DESCRIPTION}}"
+      - "--label=org.opencontainers.image.licenses={{.Env.LICENSES}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/amd64"
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-arm64"
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.description={{.Env.DESCRIPTION}}"
+      - "--label=org.opencontainers.image.licenses={{.Env.LICENSES}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/arm64"
 
-checksum:
-  name_template: "checksums.txt"
+docker_manifests:
+  - name_template: "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}"
+    image_templates:
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-arm64"
+  - name_template: "{{ .Env.REGISTRY }}/{{ .ProjectName }}:latest"
+    image_templates:
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-amd64"
+      - "{{ .Env.REGISTRY }}/{{ .ProjectName }}:{{ .Tag }}-arm64"

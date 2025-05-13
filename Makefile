@@ -85,7 +85,20 @@ build:
 run: build
 	@${BUILD_DIR}/${APP_NAME} --version
 
-## release/test: Test release
-.PHONY: release/test 
-release/test:
-	goreleaser release --snapshot --clean
+## release/tag: tag latest commit for release
+.PHONY: release/tag 
+release/tag:
+	@echo "Tagging and pushing as v$(NEW_VERSION)"
+	@if [ -z "$(NEW_VERSION)" ]; then \
+		echo "Error: NEW_VERSION is not set."; \
+		exit 1; \
+	fi
+	@echo -n "Are you sure you want to tag and push v$(NEW_VERSION)? [y/N] " && read ans && [ "$$ans" = "y" ] || exit 1
+	@git tag "v$(NEW_VERSION)"
+	@git push origin "v$(NEW_VERSION)"
+	@echo "Make release from tag v$(NEW_VERSION)"
+
+## release/dry: release (dry-run)
+.PHONY: release/dry 
+release/dry:
+	goreleaser release --clean --snapshot

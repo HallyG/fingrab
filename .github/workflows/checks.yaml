@@ -5,22 +5,22 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-24.04
+    strategy:
+        matrix:
+          os: [ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Github Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-
       - name: Setup Go
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a
         with:
           go-version-file: 'go.mod'
-          cache-dependency-path: |
-            go.sum
-
+          cache: true
+          cache-dependency-path: go.sum
       - name: Run build
-        run: go build -v ./...
-
+        run: go build -v -trimpath -mod=readonly -o output ./...
       - name: Run tests
         run: go test ./... -race

@@ -1,6 +1,8 @@
 # Fingrab
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/HallyG/fingrab/master.yaml)](https://github.com/HallyG/fingrab/actions/workflows/master.yaml)
+[![GitHub Release](https://img.shields.io/github/v/release/hallyg/fingrab?label=latest%20release)](https://github.com/hallyg/fingrab/releases/latest)
+[![License](https://img.shields.io/github/license/hallyg/fingrab)](https://github.com/HallyG/fingrab/blob/master/LICENSE)
 ![Go Version](https://img.shields.io/github/go-mod/go-version/hallyg/fingrab)
-![License](https://img.shields.io/github/license/hallyg/fingrab)
 
 A CLI for exporting financial data from various banks.
 
