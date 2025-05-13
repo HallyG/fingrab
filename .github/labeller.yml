@@ -1,7 +1,10 @@
-'GitHub Workflow':
+'CI/CD':
 - changed-files:
   - any-glob-to-any-file:
     - '.github/**'
+    - '.golangci.yaml'
+    - '.goreleaser.yaml'
+    - 'Makefile'
 
 'Go':
 - changed-files:
@@ -28,3 +31,13 @@
 - changed-files:
   - any-glob-to-any-file:
     - '**/Dockerfile*'
+
+'SQL':
+- changed-files:
+  - any-glob-to-any-file:
+    - '**/*.sql'
+
+'Shell':
+- changed-files:
+  - any-glob-to-any-file:
+    - '**/*.sh'

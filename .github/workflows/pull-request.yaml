@@ -16,7 +16,3 @@ jobs:
     uses: ./.github/workflows/linter.yaml
   checks:
     uses: ./.github/workflows/checks.yaml
-  docker-build:
-    if: github.actor == 'hallyg'
-    needs: [linter, checks]
-    uses: ./.github/workflows/docker-build.yaml

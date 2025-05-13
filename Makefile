@@ -3,13 +3,14 @@ DOCKER_IMAGE := hallyg/${APP_NAME}
 
 GIT_REF := $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short=8 --verify HEAD)
 BUILD_VERSION ?= $(GIT_REF)
+BUILD_SHORT_SHA := $(shell git rev-parse --short=8 --verify HEAD)
 BUILD_SHA := $(shell git rev-parse --verify HEAD)
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
 GO_CMD ?= go
-GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA=$(BUILD_VERSION)'
+GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA=$(BUILD_SHORT_SHA)' -X 'github.com/HallyG/fingrab/cmd/fingrab/root.BuildVersion=$(BUILD_VERSION)'
 GO_PKG_MAIN := ${PWD}/main.go
 GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/fingrab/... 
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out
@@ -83,3 +84,21 @@ build:
 .PHONY: run
 run: build
 	@${BUILD_DIR}/${APP_NAME} --version
+
+## release/tag: tag latest commit for release
+.PHONY: release/tag 
+release/tag:
+	@echo "Tagging and pushing as v$(NEW_VERSION)"
+	@if [ -z "$(NEW_VERSION)" ]; then \
+		echo "Error: NEW_VERSION is not set."; \
+		exit 1; \
+	fi
+	@echo -n "Are you sure you want to tag and push v$(NEW_VERSION)? [y/N] " && read ans && [ "$$ans" = "y" ] || exit 1
+	@git tag "v$(NEW_VERSION)"
+	@git push origin "v$(NEW_VERSION)"
+	@echo "Make release from tag v$(NEW_VERSION)"
+
+## release/dry: release (dry-run)
+.PHONY: release/dry 
+release/dry:
+	goreleaser release --clean --snapshot

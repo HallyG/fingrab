@@ -1,0 +1,7 @@
+FROM gcr.io/distroless/base-debian12@sha256:27769871031f67460f1545a52dfacead6d18a9f197db77110cfc649ca2a91f44
+
+ENV LANG=C.UTF-8
+USER nonroot:nonroot
+COPY --chown=nonroot:nonroot fingrab /opt/fingrab
+
+ENTRYPOINT ["/opt/fingrab"]

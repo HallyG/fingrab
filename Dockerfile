@@ -8,8 +8,6 @@ ARG GO_LDFLAGS="-s -w -buildid="
 
 WORKDIR /app
 
-RUN mkdir -p /app/data
-
 COPY go.mod go.sum ./
 
 RUN go mod download
@@ -30,11 +28,11 @@ ARG commit_hash=unknown
 ARG build_version=unknown
 
 USER nonroot:nonroot
-COPY --from=builder --chown=nonroot:nonroot /app/data /opt/data
 COPY --from=builder --chown=nonroot:nonroot /app/fingrab /opt/fingrab
 
 LABEL org.opencontainers.image.authors="HallyG" \
-      org.opencontainers.image.description="fingrab" \
+      org.opencontainers.image.description="A CLI for exporting financial data from various banks." \
+      org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.revision=$commit_hash \
       org.opencontainers.image.created=$build_date \
       org.opencontainers.image.version=$build_version

@@ -1,0 +1,27 @@
+name: Master
+
+on:
+  push:
+    branches: [master]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linter:
+    uses: ./.github/workflows/linter.yaml
+  checks:
+    uses: ./.github/workflows/checks.yaml
+  release:
+    needs: [linter, checks]
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/release.yaml
