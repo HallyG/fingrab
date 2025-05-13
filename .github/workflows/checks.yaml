@@ -21,6 +21,6 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
       - name: Run build
-        run: go build -v -trimpath -mod=readonly -o output ./...
+        run: go build -v -trimpath -mod=readonly ./...
       - name: Run tests
         run: go test ./... -race
