@@ -13,7 +13,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY main.go  main.go
-COPY cmd/fingrab cmd/fingrab
+COPY cmd cmd
 COPY internal internal
 
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /app/fingrab -trimpath -mod=readonly -ldflags="${GO_LDFLAGS}" ./
