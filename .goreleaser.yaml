@@ -29,7 +29,7 @@ builds:
       - -trimpath
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildVersion={{.Version}} -X github.com/HallyG/fingrab/cmd/fingrab/root.BuildShortSHA={{.Commit}}
+      - -s -w -X github.com/HallyG/{{ .ProjectName }}/cmd.BuildVersion={{.Version}} -X github.com/HallyG/{{ .ProjectName }}/cmd.BuildShortSHA={{.Commit}}
     mod_timestamp: "{{ .CommitTimestamp }}" # https://goreleaser.com/customization/builds/go/#reproducible-builds
 
 archives:

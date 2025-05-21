@@ -1,4 +1,4 @@
-package root
+package cmd
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/HallyG/fingrab/cmd/fingrab/exporter"
+	"github.com/HallyG/fingrab/internal/export"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +16,7 @@ var (
 	BuildVersion  = `(missing)`
 	BuildShortSHA = `(missing)`
 
-	RootCmd = &cobra.Command{
+	rootCmd = &cobra.Command{
 		Use:               "fingrab",
 		Short:             "Financial data exporter",
 		Long:              `A CLI for exporting financial data from various banks.`,
@@ -26,21 +26,24 @@ var (
 )
 
 func init() {
-	RootCmd.SilenceUsage = true
-	RootCmd.SilenceErrors = true
-	RootCmd.CompletionOptions.DisableDefaultCmd = true
-	RootCmd.SetOut(os.Stderr)
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
-	RootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+	for _, exportType := range export.All() {
+		cmd := newExportCommand(exportType)
+		exportCmd.AddCommand(cmd)
+	}
 
-	RootCmd.AddCommand(exporter.ExportCmd)
+	rootCmd.AddCommand(exportCmd)
 }
 
 func Main(ctx context.Context, args []string, output io.Writer) error {
-	RootCmd.SetOut(output)
-	RootCmd.SetArgs(args[1:])
+	rootCmd.SetOut(output)
+	rootCmd.SetArgs(args[1:])
 
-	return RootCmd.ExecuteContext(ctx)
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func setupLogger(cmd *cobra.Command, _ []string) error {

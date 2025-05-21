@@ -1,4 +1,4 @@
-package exporter
+package cmd
 
 import (
 	"context"
@@ -22,19 +22,12 @@ const (
 )
 
 var (
-	ExportCmd = &cobra.Command{
+	exportCmd = &cobra.Command{
 		Use:   "export",
 		Short: "Export transactions between two dates",
 		Long:  "Export banking transactions for the specified date range from supported providers",
 	}
 )
-
-func init() {
-	for _, exportType := range export.All() {
-		cmd := newExportCommand(exportType)
-		ExportCmd.AddCommand(cmd)
-	}
-}
 
 type exportOptions struct {
 	StartDateStr string
