@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/export"
@@ -39,8 +38,9 @@ func init() {
 	rootCmd.AddCommand(exportCmd)
 }
 
-func Main(ctx context.Context, args []string, output io.Writer) error {
+func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Writer) error {
 	rootCmd.SetOut(output)
+	rootCmd.SetErr(errOutput)
 	rootCmd.SetArgs(args[1:])
 
 	return rootCmd.ExecuteContext(ctx)
@@ -50,7 +50,7 @@ func setupLogger(cmd *cobra.Command, _ []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	writer := zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
-		w.Out = os.Stderr
+		w.Out = cmd.ErrOrStderr()
 		w.TimeFormat = time.RFC3339
 		w.PartsExclude = []string{"time", "level"}
 	})
