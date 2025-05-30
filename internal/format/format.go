@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
 )
@@ -16,9 +17,11 @@ type Formatter interface {
 	Flush() error
 }
 
-var registry = make(map[FormatType]func(io.Writer) Formatter)
+type constructor func(io.Writer, *time.Location) Formatter
 
-func register(format FormatType, constructor func(io.Writer) Formatter) {
+var registry = make(map[FormatType]constructor)
+
+func register(format FormatType, constructor constructor) {
 	registry[format] = constructor
 }
 
@@ -28,7 +31,8 @@ func NewFormatter(format FormatType, w io.Writer) (Formatter, error) {
 		return nil, fmt.Errorf("unsupported format type: %s", format)
 	}
 
-	return constructor(w), nil
+	location := time.Local
+	return constructor(w, location), nil
 }
 
 func All() []FormatType {
