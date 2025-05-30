@@ -75,6 +75,7 @@ type Transaction struct {
 	Merchant        *Merchant     `json:"merchant"`
 	CounterParty    *CounterParty `json:"counterparty"`
 	DeclineReason   string        `json:"decline_reason"`
+	Metadata        map[string]string
 }
 
 func (t *Transaction) UnmarshalJSON(data []byte) error {
