@@ -224,6 +224,11 @@ func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accoun
 				latest = transaction
 			}
 
+			isActiveCardCheck := transaction.Amount.MinorUnit == 0 && transaction.Metadata["notes"] == "Active card check"
+			if isActiveCardCheck {
+				continue
+			}
+
 			isNotDeclined := transaction.DeclineReason == ""
 			inDesiredDateRange := endDate.IsZero() || !transaction.CreatedAt.After(endDate)
 
