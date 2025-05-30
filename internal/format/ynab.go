@@ -26,6 +26,7 @@ type YNABFormatter struct {
 func newYNABFormatter(w io.Writer, location *time.Location) *YNABFormatter {
 	return &YNABFormatter{
 		CSVFormatter: NewCSVFormatter(w),
+		location:     location,
 	}
 }
 

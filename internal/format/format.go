@@ -31,7 +31,7 @@ func NewFormatter(format FormatType, w io.Writer) (Formatter, error) {
 		return nil, fmt.Errorf("unsupported format type: %s", format)
 	}
 
-	location := time.Local
+	location := time.UTC
 	return constructor(w, location), nil
 }
 

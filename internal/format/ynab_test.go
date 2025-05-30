@@ -25,6 +25,7 @@ func TestYNABFormatter(t *testing.T) {
 		expected := `Date,Payee,Memo,Amount
 04/16/2025,Test Transaction,Test Notes,123.45
 04/16/2025,Another Test Transaction,More notes,-123.45
+05/04/2025,Transaction With Date Affected By Timezone,Test Notes,-1.00
 `
 		require.Equal(t, expected, buffer.String())
 	})

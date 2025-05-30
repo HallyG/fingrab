@@ -54,6 +54,18 @@ func writeTestTransactions(t *testing.T, now time.Time, formatter format.Formatt
 	})
 	require.NoError(t, err)
 
+	time, err := time.Parse(time.RFC3339, "2025-05-04T23:16:52.392Z") // close to midnight boundary so we can test timezone changes
+	require.NoError(t, err)
+
+	err = formatter.WriteTransaction(&domain.Transaction{
+		CreatedAt: time,
+		Reference: "Transaction With Date Affected By Timezone",
+		Category:  "Test Category",
+		Amount:    domain.Money{MinorUnit: -100, Currency: "GBP"},
+		Notes:     "Test Notes",
+	})
+	require.NoError(t, err)
+
 	err = formatter.Flush()
 	require.NoError(t, err)
 }
