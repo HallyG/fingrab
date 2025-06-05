@@ -52,7 +52,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&opts.StartDateStr, "start", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.EndDateStr, "end", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.EndDateStr, "end", time.Now().Format(timeFormat), "End date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")

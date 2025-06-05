@@ -25,6 +25,7 @@ func TestMoneyDanceFormatter(t *testing.T) {
 		expected := `check number,date,description,category,amount,memo
 Dep,2025-04-16,Test Transaction,Test Category,123.45,Test Notes
 Trn,2025-04-16,Another Test Transaction,Another Test Category,-123.45,More notes
+Trn,2025-05-04,Transaction With Date Affected By Timezone,Test Category,-1.00,Test Notes
 `
 		require.Equal(t, expected, buffer.String())
 	})
