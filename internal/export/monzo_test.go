@@ -103,105 +103,88 @@ func TestExportMonzoTransactions(t *testing.T) {
 		return accounts[0], export.NewMonzoTransactionExporter(client)
 	}
 
-	t.Run("excludes declined transactions", func(t *testing.T) {
-		t.Parallel()
-		now := time.Now()
-
-		transactions := []*monzo.Transaction{
-			{
-				DeclineReason: "declined",
-				Description:   "declined",
-				Amount: domain.Money{
-					MinorUnit: 118,
-					Currency:  "GBP",
+	now := time.Now()
+	tests := map[string]struct {
+		transactions         []*monzo.Transaction
+		expectedTransactions []*domain.Transaction
+	}{
+		"excludes declined transactions": {
+			transactions: []*monzo.Transaction{
+				{
+					DeclineReason: "declined",
+					Description:   "declined",
+					Amount: domain.Money{
+						MinorUnit: 118,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 140,
+						Currency:  "EUR",
+					},
 				},
-				LocalAmount: domain.Money{
-					MinorUnit: 140,
-					Currency:  "EUR",
-				},
-			},
-			{
-				Description: "settled",
-				SettledAt:   &now,
-				Amount: domain.Money{
-					MinorUnit: 276,
-					Currency:  "GBP",
-				},
-			},
-		}
-
-		account, exporter := setup(t, transactions)
-
-		res, err := exporter.ExportTransactions(
-			t.Context(),
-			export.Options{
-				StartDate: time.Now().Add(-24 * time.Hour),
-				EndDate:   time.Now(),
-				AccountID: string(account.ID),
-				Timeout:   10 * time.Second,
-				AuthToken: "test-token",
-			},
-		)
-		require.NoError(t, err)
-
-		require.Len(t, res, 1)
-		require.Equal(t, "settled", res[0].Reference)
-		require.Equal(t, domain.Money{
-			MinorUnit: 276,
-			Currency:  "GBP",
-		}, res[0].Amount, "transaction amount should be in the account's currency")
-	})
-
-	t.Run("excludes active card checks", func(t *testing.T) {
-		t.Parallel()
-
-		now := time.Now()
-
-		transactions := []*monzo.Transaction{
-			{
-				Description: "active card check",
-				Amount: domain.Money{
-					MinorUnit: 0,
-					Currency:  "GBP",
-				},
-				LocalAmount: domain.Money{
-					MinorUnit: 0,
-					Currency:  "USD",
-				},
-				SettledAt: nil,
-				Metadata: map[string]string{
-					"notes": "Active card check",
+				{
+					Description: "settled",
+					SettledAt:   &now,
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
 				},
 			},
-			{
-				Description: "settled",
-				SettledAt:   &now,
-				Amount: domain.Money{
-					MinorUnit: 276,
-					Currency:  "GBP",
+			expectedTransactions: []*domain.Transaction{
+				{
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Reference: "settled",
+					Category:  "",
+					CreatedAt: time.Time{},
+					IsDeposit: false,
+					BankName:  "Monzo",
+					Notes:     "",
 				},
 			},
-		}
-
-		account, exporter := setup(t, transactions)
-
-		res, err := exporter.ExportTransactions(
-			t.Context(),
-			export.Options{
-				StartDate: time.Now().Add(-24 * time.Hour),
-				EndDate:   time.Now(),
-				AccountID: string(account.ID),
-				Timeout:   10 * time.Second,
-				AuthToken: "test-token",
+		},
+		"excludes active card checks": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "active card check",
+					Amount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "USD",
+					},
+					SettledAt: nil,
+					Metadata: map[string]string{
+						"notes": "Active card check",
+					},
+				},
 			},
-		)
-		require.NoError(t, err)
+			expectedTransactions: []*domain.Transaction{},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		require.Len(t, res, 1)
-		require.Equal(t, "settled", res[0].Reference)
-		require.Equal(t, domain.Money{
-			MinorUnit: 276,
-			Currency:  "GBP",
-		}, res[0].Amount, "transaction amount should be in the account's currency")
-	})
+			account, exporter := setup(t, test.transactions)
+			res, err := exporter.ExportTransactions(
+				t.Context(),
+				export.Options{
+					StartDate: time.Now().Add(-24 * time.Hour),
+					EndDate:   time.Now(),
+					AccountID: string(account.ID),
+					Timeout:   10 * time.Second,
+					AuthToken: "test-token",
+				},
+			)
+			require.NoError(t, err)
+
+			require.ElementsMatch(t, res, test.expectedTransactions)
+		})
+	}
 }
