@@ -164,7 +164,33 @@ func TestExportMonzoTransactions(t *testing.T) {
 					},
 				},
 			},
-			expectedTransactions: []*domain.Transaction{},
+		},
+		"includes transactions created on today": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "settled",
+					SettledAt:   &now,
+					CreatedAt:   now,
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+				},
+			},
+			expectedTransactions: []*domain.Transaction{
+				{
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Reference: "settled",
+					Category:  "",
+					CreatedAt: time.Time{},
+					IsDeposit: false,
+					BankName:  "Monzo",
+					Notes:     "",
+				},
+			},
 		},
 	}
 	for name, test := range tests {
