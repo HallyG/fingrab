@@ -103,105 +103,112 @@ func TestExportMonzoTransactions(t *testing.T) {
 		return accounts[0], export.NewMonzoTransactionExporter(client)
 	}
 
-	t.Run("excludes declined transactions", func(t *testing.T) {
-		t.Parallel()
-		now := time.Now()
-
-		transactions := []*monzo.Transaction{
-			{
-				DeclineReason: "declined",
-				Description:   "declined",
-				Amount: domain.Money{
-					MinorUnit: 118,
-					Currency:  "GBP",
-				},
-				LocalAmount: domain.Money{
-					MinorUnit: 140,
-					Currency:  "EUR",
-				},
-			},
-			{
-				Description: "settled",
-				SettledAt:   &now,
-				Amount: domain.Money{
-					MinorUnit: 276,
-					Currency:  "GBP",
+	now := time.Now()
+	tests := map[string]struct {
+		transactions         []*monzo.Transaction
+		expectedTransactions []*domain.Transaction
+	}{
+		"excludes declined transactions": {
+			transactions: []*monzo.Transaction{
+				{
+					DeclineReason: "declined",
+					Description:   "declined",
+					Amount: domain.Money{
+						MinorUnit: 118,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 140,
+						Currency:  "EUR",
+					},
 				},
 			},
-		}
-
-		account, exporter := setup(t, transactions)
-
-		res, err := exporter.ExportTransactions(
-			t.Context(),
-			export.Options{
-				StartDate: time.Now().Add(-24 * time.Hour),
-				EndDate:   time.Now(),
-				AccountID: string(account.ID),
-				Timeout:   10 * time.Second,
-				AuthToken: "test-token",
-			},
-		)
-		require.NoError(t, err)
-
-		require.Len(t, res, 1)
-		require.Equal(t, "settled", res[0].Reference)
-		require.Equal(t, domain.Money{
-			MinorUnit: 276,
-			Currency:  "GBP",
-		}, res[0].Amount, "transaction amount should be in the account's currency")
-	})
-
-	t.Run("excludes active card checks", func(t *testing.T) {
-		t.Parallel()
-
-		now := time.Now()
-
-		transactions := []*monzo.Transaction{
-			{
-				Description: "active card check",
-				Amount: domain.Money{
-					MinorUnit: 0,
-					Currency:  "GBP",
-				},
-				LocalAmount: domain.Money{
-					MinorUnit: 0,
-					Currency:  "USD",
-				},
-				SettledAt: nil,
-				Metadata: map[string]string{
-					"notes": "Active card check",
+		},
+		"excludes active card checks": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "active card check",
+					Amount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "USD",
+					},
+					SettledAt: nil,
+					Metadata: map[string]string{
+						"notes": "Active card check",
+					},
 				},
 			},
-			{
-				Description: "settled",
-				SettledAt:   &now,
-				Amount: domain.Money{
-					MinorUnit: 276,
-					Currency:  "GBP",
+		},
+		"excludes transactions created tomorrow": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "created tomorrow",
+					Amount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "USD",
+					},
+					SettledAt: nil,
+					CreatedAt: now.AddDate(0, 0, 1),
+					Metadata: map[string]string{
+						"notes": "Active card check",
+					},
 				},
 			},
-		}
-
-		account, exporter := setup(t, transactions)
-
-		res, err := exporter.ExportTransactions(
-			t.Context(),
-			export.Options{
-				StartDate: time.Now().Add(-24 * time.Hour),
-				EndDate:   time.Now(),
-				AccountID: string(account.ID),
-				Timeout:   10 * time.Second,
-				AuthToken: "test-token",
+		},
+		"includes transactions created on today": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "settled",
+					SettledAt:   &now,
+					CreatedAt:   now,
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+				},
 			},
-		)
-		require.NoError(t, err)
+			expectedTransactions: []*domain.Transaction{
+				{
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Reference: "settled",
+					Category:  "",
+					CreatedAt: now,
+					IsDeposit: false,
+					BankName:  "Monzo",
+					Notes:     "",
+				},
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		require.Len(t, res, 1)
-		require.Equal(t, "settled", res[0].Reference)
-		require.Equal(t, domain.Money{
-			MinorUnit: 276,
-			Currency:  "GBP",
-		}, res[0].Amount, "transaction amount should be in the account's currency")
-	})
+			account, exporter := setup(t, test.transactions)
+			res, err := exporter.ExportTransactions(
+				t.Context(),
+				export.Options{
+					StartDate: time.Now().Add(-24 * time.Hour),
+					EndDate:   time.Now(),
+					AccountID: string(account.ID),
+					Timeout:   10 * time.Second,
+					AuthToken: "test-token",
+				},
+			)
+			require.NoError(t, err)
+
+			require.ElementsMatch(t, res, test.expectedTransactions)
+		})
+	}
 }
