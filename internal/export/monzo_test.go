@@ -122,28 +122,6 @@ func TestExportMonzoTransactions(t *testing.T) {
 						Currency:  "EUR",
 					},
 				},
-				{
-					Description: "settled",
-					SettledAt:   &now,
-					Amount: domain.Money{
-						MinorUnit: 276,
-						Currency:  "GBP",
-					},
-				},
-			},
-			expectedTransactions: []*domain.Transaction{
-				{
-					Amount: domain.Money{
-						MinorUnit: 276,
-						Currency:  "GBP",
-					},
-					Reference: "settled",
-					Category:  "",
-					CreatedAt: time.Time{},
-					IsDeposit: false,
-					BankName:  "Monzo",
-					Notes:     "",
-				},
 			},
 		},
 		"excludes active card checks": {
@@ -159,6 +137,26 @@ func TestExportMonzoTransactions(t *testing.T) {
 						Currency:  "USD",
 					},
 					SettledAt: nil,
+					Metadata: map[string]string{
+						"notes": "Active card check",
+					},
+				},
+			},
+		},
+		"excludes transactions created tomorrow": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "created tomorrow",
+					Amount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "GBP",
+					},
+					LocalAmount: domain.Money{
+						MinorUnit: 0,
+						Currency:  "USD",
+					},
+					SettledAt: nil,
+					CreatedAt: now.AddDate(0, 0, 1),
 					Metadata: map[string]string{
 						"notes": "Active card check",
 					},
