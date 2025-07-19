@@ -183,10 +183,11 @@ func (m *monzoTransactionExporter) fetchAccount(ctx context.Context, accountID s
 
 func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accountID monzo.AccountID, startDate time.Time, endDate time.Time) ([]*monzo.Transaction, error) {
 	var transactions []*monzo.Transaction
-
 	var sinceID monzo.TransactionID
 
+	endDateExclusive := endDate.AddDate(0, 0, 1)
 	limit := monzoTransactionBatch
+
 	zerolog.Ctx(ctx).Debug().
 		Ctx(ctx).
 		Str("bank", Monzo).
@@ -230,7 +231,7 @@ func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accoun
 			}
 
 			isNotDeclined := transaction.DeclineReason == ""
-			inDesiredDateRange := endDate.IsZero() || !transaction.CreatedAt.After(endDate)
+			inDesiredDateRange := endDate.IsZero() || !transaction.CreatedAt.After(endDateExclusive)
 
 			if inDesiredDateRange && isNotDeclined {
 				transactions = append(transactions, transaction)
@@ -240,7 +241,7 @@ func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accoun
 		sinceID = latest.ID
 
 		// Monzo doesn't support cursor AND time pagination
-		if latest.CreatedAt.After(endDate) {
+		if latest.CreatedAt.After(endDateExclusive) {
 			break
 		}
 	}

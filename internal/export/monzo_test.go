@@ -185,7 +185,7 @@ func TestExportMonzoTransactions(t *testing.T) {
 					},
 					Reference: "settled",
 					Category:  "",
-					CreatedAt: time.Time{},
+					CreatedAt: now,
 					IsDeposit: false,
 					BankName:  "Monzo",
 					Notes:     "",
