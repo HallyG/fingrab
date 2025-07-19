@@ -20,7 +20,5 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
           cache-dependency-path: go.sum
-      - name: Run build
-        run: go build -v -trimpath -mod=readonly ./...
       - name: Run tests
         run: go test ./... -timeout 10s -race

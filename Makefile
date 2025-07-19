@@ -10,9 +10,12 @@ PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
 GO_CMD ?= go
+GO_BUILD_TAGS =
 GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/${APP_NAME}/cmd.BuildShortSHA=$(BUILD_SHORT_SHA)' -X 'github.com/HallyG/${APP_NAME}/cmd.BuildVersion=$(BUILD_VERSION)'
 GO_PKG_MAIN := ${PWD}/main.go
 GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/... 
+EXCLUDE_PKGS := 
+GO_COVERAGE_PKGS := $(filter-out $(EXCLUDE_PKGS), $(shell go list $(GO_PKGS)))
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out
 GO_COVERAGE_TEXT_FILE := $(BUILD_DIR)/cover.txt
 GO_COVERAGE_HTML_FILE := $(BUILD_DIR)/cover.html
@@ -41,19 +44,19 @@ audit: clean
 	@$(GO_CMD) mod verify
 	@$(GO_CMD) fmt ${GO_PKGS}
 	@$(GO_CMD) vet ${GO_PKGS}
-	@${GOLANGCI_CMD} run ${GOLANGCI_ARGS} ${GOLANGCI_FILES}
+	@${GOLANGCI_CMD} run ${GOLANGCI_ARGS} ${GO_PKGS}
 
 ## test: run tests
 .PHONY: test
 test:
-	@$(GO_CMD) test -timeout 10s -race $(if $(VERBOSE),-v) ${GO_PKGS}
+	@$(GO_CMD) test ${GO_BUILD_TAGS} -timeout 10s -race $(if $(VERBOSE),-v) ${GO_PKGS}
 
 ## test/cover: run tests with coverage
 .PHONY: test/cover
 test/cover:
 	@mkdir -p ${BUILD_DIR}
 	@rm -f ${GO_COVERAGE_FILE} ${GO_COVERAGE_TEXT_FILE} ${GO_COVERAGE_HTML_FILE}
-	@$(GO_CMD) test -timeout 10s -race -coverprofile=${GO_COVERAGE_FILE} ${GO_PKGS}
+	@$(GO_CMD) test ${GO_BUILD_TAGS} -timeout 10s -race -coverprofile=${GO_COVERAGE_FILE} ${GO_COVERAGE_PKGS}
 	@$(GO_CMD) tool cover -func ${GO_COVERAGE_FILE} -o ${GO_COVERAGE_TEXT_FILE}
 	@$(GO_CMD) tool cover -html ${GO_COVERAGE_FILE} -o ${GO_COVERAGE_HTML_FILE}
 
@@ -78,7 +81,7 @@ docker/run: docker/build
 .PHONY: build
 build:
 	@echo "GO_LDFLAGS: $(GO_LDFLAGS)"
-	@$(GO_CMD) build -o ${BUILD_DIR}/${APP_NAME} -trimpath -mod=readonly -ldflags="$(GO_LDFLAGS)" ${GO_PKG_MAIN}
+	@$(GO_CMD) build ${GO_BUILD_TAGS} -o ${BUILD_DIR}/${APP_NAME} -trimpath -mod=readonly -ldflags="$(GO_LDFLAGS)" ${GO_PKG_MAIN}
 
 ## run: run the application	
 .PHONY: run
