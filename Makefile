@@ -13,6 +13,8 @@ GO_CMD ?= go
 GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/${APP_NAME}/cmd.BuildShortSHA=$(BUILD_SHORT_SHA)' -X 'github.com/HallyG/${APP_NAME}/cmd.BuildVersion=$(BUILD_VERSION)'
 GO_PKG_MAIN := ${PWD}/main.go
 GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/... 
+EXCLUDE_PKGS := 
+GO_COVERAGE_PKGS := $(filter-out $(EXCLUDE_PKGS), $(shell go list $(GO_PKGS)))
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out
 GO_COVERAGE_TEXT_FILE := $(BUILD_DIR)/cover.txt
 GO_COVERAGE_HTML_FILE := $(BUILD_DIR)/cover.html
@@ -41,7 +43,7 @@ audit: clean
 	@$(GO_CMD) mod verify
 	@$(GO_CMD) fmt ${GO_PKGS}
 	@$(GO_CMD) vet ${GO_PKGS}
-	@${GOLANGCI_CMD} run ${GOLANGCI_ARGS} ${GOLANGCI_FILES}
+	@${GOLANGCI_CMD} run ${GOLANGCI_ARGS} ${GO_PKGS}
 
 ## test: run tests
 .PHONY: test
