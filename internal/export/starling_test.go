@@ -52,6 +52,8 @@ func (s *StubStarlingClient) FetchSavingsGoals(ctx context.Context, accountID st
 }
 
 func TestNewStarlingTransactionExport(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
@@ -75,6 +77,8 @@ func TestNewStarlingTransactionExport(t *testing.T) {
 }
 
 func TestExportStarlingTransactions(t *testing.T) {
+	t.Parallel()
+
 	t.Run("excludes declined transactions", func(t *testing.T) {
 		t.Parallel()
 

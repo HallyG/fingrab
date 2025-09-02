@@ -10,6 +10,8 @@ import (
 )
 
 func TestYNABFormatter(t *testing.T) {
+	t.Parallel()
+
 	t.Run("writes CSV data", func(t *testing.T) {
 		t.Parallel()
 

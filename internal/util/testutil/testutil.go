@@ -13,7 +13,9 @@ import (
 func LoadTestDataFile(t *testing.T, filename string) []byte {
 	t.Helper()
 
-	path := filepath.Join("testdata", "api", filename)
+	fullPath := filepath.Join(filepath.Join("testdata", "api"), filename)
+	path := filepath.Clean(fullPath)
+
 	_, err := os.Stat(path)
 	require.NoError(t, err, "test data file %s must exist", filename)
 

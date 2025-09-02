@@ -10,6 +10,8 @@ import (
 )
 
 func TestAll(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns expected formats", func(t *testing.T) {
 		t.Parallel()
 
@@ -21,6 +23,8 @@ func TestAll(t *testing.T) {
 }
 
 func TestNewFormatter(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns error for unknown format", func(t *testing.T) {
 		t.Parallel()
 

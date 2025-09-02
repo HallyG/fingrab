@@ -15,18 +15,24 @@ import (
 )
 
 func TestAll(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns expected types", func(t *testing.T) {
 		t.Parallel()
 
 		exportTypes := export.All()
 
-		require.Len(t, exportTypes, 2)
-		require.Equal(t, []export.ExportType{export.ExportTypeMonzo, export.ExportTypeStarling}, exportTypes)
+		require.Contains(t, exportTypes, export.ExportTypeMonzo)
+		require.Contains(t, exportTypes, export.ExportTypeStarling)
 	})
 }
 
 func TestNewExporter(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns error for unknown type", func(t *testing.T) {
+		t.Parallel()
+
 		exporter, err := export.NewExporter(export.ExportType("wow"), export.Options{})
 
 		require.Nil(t, exporter)
@@ -35,6 +41,8 @@ func TestNewExporter(t *testing.T) {
 }
 
 func TestTransactions(t *testing.T) {
+	t.Parallel()
+
 	export.Register(ExportTypeStub, func(opts export.Options) (export.Exporter, error) {
 		if opts.AuthToken == "12345" {
 			return nil, errors.New("some error")
