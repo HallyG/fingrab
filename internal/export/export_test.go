@@ -115,7 +115,7 @@ func TestTransactions(t *testing.T) {
 			AuthToken: "token",
 		}, formatter)
 
-		require.ErrorContains(t, err, "date range is too long")
+		require.ErrorContains(t, err, "date range is too long, max is 1 days")
 	})
 
 	tests := []struct {
