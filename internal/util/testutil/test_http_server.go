@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type HTTPTestRoute struct {
@@ -41,7 +39,6 @@ func NewHTTPTestServer(t *testing.T, routes []HTTPTestRoute) *httptest.Server {
 	}
 
 	server := httptest.NewServer(router)
-
 	t.Cleanup(server.Close)
 
 	return server
@@ -50,12 +47,11 @@ func NewHTTPTestServer(t *testing.T, routes []HTTPTestRoute) *httptest.Server {
 func ServeJSONTestDataHandler(t *testing.T, statusCode int, filename string) http.HandlerFunc {
 	t.Helper()
 
+	data := LoadTestDataFile(t, filename)
+
 	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-
-		data := LoadTestDataFile(t, filename)
-		_, err := w.Write(data)
-		assert.NoError(t, err, "failed to write test response")
+		_, _ = w.Write(data)
 	}
 }

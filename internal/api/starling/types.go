@@ -1,8 +1,6 @@
 package starling
 
 import (
-	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
@@ -160,7 +158,6 @@ type ErrorMessage struct {
 }
 
 type Error struct {
-	HTTPStatus    int
 	Code          string         `json:"error"`
 	Message       string         `json:"error_description"`
 	Success       bool           `json:"success"`
@@ -186,33 +183,5 @@ func (err Error) Error() string {
 		sb.WriteString("] ")
 	}
 
-	if err.HTTPStatus != 0 {
-		errorMessages := make([]string, len(err.ErrorMessages))
-		for i, e := range err.ErrorMessages {
-			errorMessages[i] = e.Message
-		}
-
-		sb.WriteString("(http status=")
-		sb.WriteString(strconv.Itoa(err.HTTPStatus))
-		sb.WriteString(")")
-	}
-
 	return sb.String()
-}
-
-func UnmarshalError(status int, body []byte) error {
-	if len(body) != 0 {
-		apiError := Error{}
-		if err := json.Unmarshal(body, &apiError); err == nil {
-			apiError.HTTPStatus = status
-		}
-
-		return apiError
-	}
-
-	return Error{
-		HTTPStatus: status,
-		Code:       "unknown",
-		Message:    "unknown",
-	}
 }

@@ -71,6 +71,9 @@ func NewExporter(exportType ExportType, opts Options) (Exporter, error) {
 }
 
 func All() []ExportType {
+	registryLock.RLock()
+	defer registryLock.RUnlock()
+
 	exportTypes := make([]ExportType, 0, len(registry))
 	for exportType := range registry {
 		exportTypes = append(exportTypes, exportType)

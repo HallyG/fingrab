@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -17,6 +18,18 @@ import (
 const (
 	token = "mock-token"
 )
+
+func setup(t *testing.T, routes ...testutil.HTTPTestRoute) starling.Client {
+	t.Helper()
+
+	server := testutil.NewHTTPTestServer(t, routes)
+	client := starling.New(&http.Client{},
+		starling.WithBaseURL(server.URL),
+		starling.WithAuthToken(token),
+	)
+
+	return client
+}
 
 func TestNew(t *testing.T) {
 	t.Parallel()
@@ -32,172 +45,146 @@ func TestNew(t *testing.T) {
 func TestFetchAccounts(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name                string
-		expectedQueryParams map[string]string
-		expectedHeaders     map[string]string
-		expectedLength      int
+	tests := map[string]struct {
+		route            testutil.HTTPTestRoute
+		expectedAccounts []*starling.Account
+		expectedErr      *starling.Error
+		assertFn         func(t *testing.T, items []*starling.Account)
 	}{
-		{
-			name:                "successful fetch",
-			expectedQueryParams: map[string]string{},
-			expectedHeaders: map[string]string{
-				"Authorization": token,
+		"successful fetch": {
+			expectedAccounts: []*starling.Account{
+				{
+					ID:                starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033")),
+					DefaultCategoryID: starling.CategoryID(uuid.MustParse("00000000-0000-4000-0000-000000000099")),
+					Type:              "PRIMARY",
+					Currency:          "GBP",
+					CreatedAt: testutil.MustParse(t, "2020-02-02T02:02:22.222Z", func(s string) (time.Time, error) {
+						return time.Parse(time.RFC3339, s)
+					}),
+					Name: "Personal",
+				},
 			},
-			expectedLength: 1,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			assertHandler := testutil.ServeJSONTestDataHandler(t, http.StatusOK, "accounts.json")
-			route := testutil.HTTPTestRoute{
+			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/api/v2/accounts",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					testutil.AssertRequest(t, r, http.MethodGet, test.expectedHeaders, test.expectedQueryParams)
-					assertHandler(w, r)
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "accounts.json")(w, r)
 				},
-			}
+			},
+			assertFn: func(t *testing.T, items []*starling.Account) {
+				t.Helper()
 
-			server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-			client := starling.New(&http.Client{},
-				starling.WithBaseURL(server.URL),
-				starling.WithAuthToken(token),
-			)
+				require.Len(t, items, 1)
+			},
+		},
+		"returns API error": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    "/api/v2/accounts",
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					testutil.AssertRequest(t, r, http.MethodGet, nil, nil)
+					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
+				},
+			},
+			expectedErr: &starling.Error{
+				Code:    "invalid_token",
+				Message: "No access token provided in request. `Header: Authorization` must be set ",
+			},
+		},
+		"returns API error array": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    "/api/v2/accounts",
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					testutil.AssertRequest(t, r, http.MethodGet, nil, nil)
+					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error-array.json")(w, r)
+				},
+			},
+			expectedErr: &starling.Error{
+				ErrorMessages: []starling.ErrorMessage{
+					{"MAX_TRANSACTION_TIMESTAMP_must not be null"},
+					{"MIN_TRANSACTION_TIMESTAMP_must not be null"},
+				},
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			accounts, err := client.FetchAccounts(t.Context())
-			require.NoError(t, err, "failed to fetch accounts")
-			require.Len(t, accounts, test.expectedLength, "unexpected number of accounts")
+			client := setup(t, test.route)
+			items, err := client.FetchAccounts(t.Context())
 
-			if len(accounts) > 0 {
-				account := accounts[0]
-				require.Equal(t, starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033")), account.ID, "account ID should match")
-				require.Equal(t, starling.CategoryID(uuid.MustParse("00000000-0000-4000-0000-000000000099")), account.DefaultCategoryID, "category ID should match")
-				require.Equal(t, "PRIMARY", account.Type, "type should match")
-				require.Equal(t, "GBP", account.Currency, "currency should match")
-				require.Equal(t, "2020-02-02T02:02:22Z", account.CreatedAt.Format(time.RFC3339), "created at time should match")
-				require.Equal(t, "Personal", account.Name, "name should match")
+			if test.expectedErr != nil {
+				require.Empty(t, items)
+				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
+			} else {
+				require.NoError(t, err)
+				require.ElementsMatch(t, items, test.expectedAccounts)
+				if test.assertFn != nil {
+					test.assertFn(t, items)
+				}
 			}
 		})
 	}
-
-	t.Run("returns API error", func(t *testing.T) {
-		t.Parallel()
-
-		route := testutil.HTTPTestRoute{
-			Method: http.MethodGet,
-			URL:    "/api/v2/accounts",
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				testutil.AssertRequest(t, r, http.MethodGet, nil, nil)
-				testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
-			},
-		}
-
-		server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-		client := starling.New(&http.Client{},
-			starling.WithBaseURL(server.URL),
-			starling.WithAuthToken(token),
-		)
-
-		ctx := t.Context()
-		accounts, err := client.FetchAccounts(ctx)
-
-		require.Error(t, err)
-		require.Nil(t, accounts)
-		require.Contains(t, err.Error(), "Header: Authorization` must be set  (http status=401)")
-	})
-
-	t.Run("returns API error array", func(t *testing.T) {
-		t.Parallel()
-
-		route := testutil.HTTPTestRoute{
-			Method: http.MethodGet,
-			URL:    "/api/v2/accounts",
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				testutil.AssertRequest(t, r, http.MethodGet, nil, nil)
-				testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error-array.json")(w, r)
-			},
-		}
-
-		server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-		client := starling.New(&http.Client{},
-			starling.WithBaseURL(server.URL),
-			starling.WithAuthToken(token),
-		)
-
-		ctx := t.Context()
-		accounts, err := client.FetchAccounts(ctx)
-
-		require.Error(t, err)
-		require.Nil(t, accounts)
-
-		var starlingErr starling.Error
-		ok := errors.As(errors.Unwrap(err), &starlingErr)
-		require.True(t, ok)
-
-		require.Empty(t, starlingErr.Code, "code should be empty")
-		require.Empty(t, starlingErr.Message, "message should be empty")
-		require.Equal(t, http.StatusUnauthorized, starlingErr.HTTPStatus, "http status should match")
-		require.Equal(t, []starling.ErrorMessage{
-			{"MAX_TRANSACTION_TIMESTAMP_must not be null"},
-			{"MIN_TRANSACTION_TIMESTAMP_must not be null"},
-		}, starlingErr.ErrorMessages)
-	})
 }
 
 func TestFetchSavingsGoals(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name                string
-		expectedQueryParams map[string]string
-		expectedHeaders     map[string]string
-		expectedLength      int
+	accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
+
+	tests := map[string]struct {
+		route         testutil.HTTPTestRoute
+		expectedGoals []*starling.SavingsGoal
+		expectedErr   *starling.Error
+		assertFn      func(t *testing.T, items []*starling.SavingsGoal)
 	}{
-		{
-			name:                "successful fetch",
-			expectedQueryParams: map[string]string{},
-			expectedHeaders: map[string]string{
-				"Authorization": token,
-			},
-			expectedLength: 1,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
-
-			assertHandler := testutil.ServeJSONTestDataHandler(t, http.StatusOK, "savings-goals.json")
-			route := testutil.HTTPTestRoute{
+		"successful fetch": {
+			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    fmt.Sprintf("/api/v2/account/%s/savings-goals", accountId.String()),
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					testutil.AssertRequest(t, r, http.MethodGet, test.expectedHeaders, test.expectedQueryParams)
-					assertHandler(w, r)
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "savings-goals.json")(w, r)
 				},
-			}
+			},
+			expectedGoals: []*starling.SavingsGoal{
+				{
+					ID:         starling.SavingsGoalID(uuid.MustParse("77887788-7788-7788-7788-778877887788")),
+					Name:       "Trip to Paris",
+					State:      "ACTIVE",
+					Target:     domain.Money{MinorUnit: 123457, Currency: "GBP"},
+					TotalSaved: domain.Money{MinorUnit: 123456, Currency: "GBP"},
+				},
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-			client := starling.New(&http.Client{},
-				starling.WithBaseURL(server.URL),
-				starling.WithAuthToken(token),
-			)
+			client := setup(t, test.route)
+			items, err := client.FetchSavingsGoals(t.Context(), accountId)
 
-			goals, err := client.FetchSavingsGoals(t.Context(), accountId)
-			require.NoError(t, err, "failed to fetch savings goals")
-			require.Len(t, goals, test.expectedLength, "unexpected number of savings goals")
-
-			if len(goals) > 0 {
-				goal := goals[0]
-				require.Equal(t, starling.SavingsGoalID(uuid.MustParse("77887788-7788-7788-7788-778877887788")), goal.ID, "savings goal ID should match")
-				require.Equal(t, "Trip to Paris", goal.Name, "name should match")
-				require.Equal(t, "ACTIVE", goal.State, "status should match")
-				require.Equal(t, domain.Money{MinorUnit: 123456, Currency: "GBP"}, goal.Target, "target should match")
-				require.Equal(t, domain.Money{MinorUnit: 123456, Currency: "GBP"}, goal.TotalSaved, "total saved should match")
+			if test.expectedErr != nil {
+				require.Empty(t, items)
+				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
+			} else {
+				require.NoError(t, err)
+				require.ElementsMatch(t, items, test.expectedGoals)
+				if test.assertFn != nil {
+					test.assertFn(t, items)
+				}
 			}
 		})
 	}
@@ -206,80 +193,74 @@ func TestFetchSavingsGoals(t *testing.T) {
 func TestFetchFeedItem(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name                string
-		expectedQueryParams map[string]string
-		expectedHeaders     map[string]string
-		pending             bool
-		datafilename        string
+	feedItemId := starling.FeedItemID(uuid.MustParse("11221122-1122-1122-1122-112211221122"))
+	accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
+	categoryId := starling.CategoryID(uuid.MustParse("ccddccdd-ccdd-ccdd-ccdd-ccddccddccdd"))
+
+	tests := map[string]struct {
+		route        testutil.HTTPTestRoute
+		expectedItem *starling.FeedItem
+		expectedErr  *starling.Error
+		assertFn     func(y *testing.T, item *starling.FeedItem)
 	}{
-		{
-			name:                "successful fetch",
-			expectedQueryParams: map[string]string{},
-			expectedHeaders: map[string]string{
-				"Authorization": token,
-			},
-			pending:      false,
-			datafilename: "feed-item.json",
-		},
-		{
-			name:                "successful fetch pending item",
-			expectedQueryParams: map[string]string{},
-			expectedHeaders: map[string]string{
-				"Authorization": token,
-			},
-			pending:      true,
-			datafilename: "feed-item-pending.json",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			feedItemId := starling.FeedItemID(uuid.MustParse("11221122-1122-1122-1122-112211221122"))
-			accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
-			categoryId := starling.CategoryID(uuid.MustParse("ccddccdd-ccdd-ccdd-ccdd-ccddccddccdd"))
-
-			assertHandler := testutil.ServeJSONTestDataHandler(t, http.StatusOK, test.datafilename)
-			route := testutil.HTTPTestRoute{
+		"successful fetch": {
+			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/%s", accountId.String(), categoryId.String(), feedItemId.String()),
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					testutil.AssertRequest(t, r, http.MethodGet, test.expectedHeaders, test.expectedQueryParams)
-					assertHandler(w, r)
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-item.json")(w, r)
 				},
-			}
+			},
+			expectedItem: testutil.MarshalTestDataFile[starling.FeedItem](t, "feed-item.json"),
+			assertFn: func(t *testing.T, item *starling.FeedItem) {
+				t.Helper()
 
-			server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-			client := starling.New(&http.Client{},
-				starling.WithBaseURL(server.URL),
-				starling.WithAuthToken(token),
-			)
+				require.Equal(t, starling.StatusSettled, item.Status)
+				require.Equal(t, "2025-02-19T16:38:59Z", item.SettledAt.Format(time.RFC3339))
+			},
+		},
+		"successful fetch pending item": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/%s", accountId.String(), categoryId.String(), feedItemId.String()),
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
 
-			feedItem, err := client.FetchFeedItem(t.Context(), accountId, categoryId, feedItemId)
-			require.NoError(t, err, "failed to fetch feed item")
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-item-pending.json")(w, r)
+				},
+			},
+			expectedItem: testutil.MarshalTestDataFile[starling.FeedItem](t, "feed-item-pending.json"),
+			assertFn: func(t *testing.T, item *starling.FeedItem) {
+				t.Helper()
 
-			require.NotNil(t, feedItem)
-			require.Equal(t, starling.FeedItemID(uuid.MustParse("11221122-1122-1122-1122-112211221122")), feedItem.ID, "feed item ID should match")
-			require.Equal(t, starling.CategoryID(uuid.MustParse("ccddccdd-ccdd-ccdd-ccdd-ccddccddccdd")), feedItem.CategoryID, "category ID should match")
-			require.Equal(t, "GROCERIES", feedItem.CategoryName, "category name should match")
-			require.Equal(t, domain.Money{MinorUnit: 123456, Currency: "GBP"}, feedItem.Amount, "amount should match")
-			require.Equal(t, "Tax deductable, submit me to payroll", feedItem.UserNote, "user note should match")
-			require.Equal(t, "TESCO-STORES-6148      SOUTHAMPTON   GBR", feedItem.Description, "description should match")
-			require.Equal(t, "2025-02-19T16:37:59Z", feedItem.TransactedAt.Format(time.RFC3339), "transcated at time should match")
-			require.Equal(t, starling.DirectionIN, feedItem.Direction, "direction should match")
-			require.Equal(t, "MASTER_CARD", feedItem.Source, "source should match")
-			require.Equal(t, "CONTACTLESS", feedItem.SourceSubType, "source sub type should match")
-			require.Equal(t, "MERCHANT", feedItem.CounterPartyType, "counter party type should match")
-			require.Equal(t, "Tesco", feedItem.CounterPartyName, "counter party name should match")
-			require.Equal(t, starling.CounterPartyID(uuid.MustParse("68e16af4-c2c3-413b-bf93-1056b90097fa")), feedItem.CounterPartyID, "counter party ID should match")
+				require.Equal(t, starling.StatusPending, item.Status)
+				require.Empty(t, item.SettledAt)
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			if test.pending {
-				require.Equal(t, starling.StatusPending, feedItem.Status, "status should match")
-				require.Empty(t, feedItem.SettledAt, "settled at time should match")
+			client := setup(t, test.route)
+			item, err := client.FetchFeedItem(t.Context(), accountId, categoryId, feedItemId)
+			if test.expectedErr != nil {
+				require.Nil(t, item)
+				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
 			} else {
-				require.Equal(t, starling.StatusSettled, feedItem.Status, "status should match")
-				require.Equal(t, "2025-02-19T16:38:59Z", feedItem.SettledAt.Format(time.RFC3339), "settled at time should match")
+				require.NoError(t, err)
+				require.Equal(t, test.expectedItem, item)
+				if test.assertFn != nil {
+					test.assertFn(t, item)
+				}
 			}
 		})
 	}
@@ -291,81 +272,106 @@ func TestFetchTransactionsSince(t *testing.T) {
 	accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
 	categoryId := starling.CategoryID(uuid.MustParse("ccddccdd-ccdd-ccdd-ccdd-ccddccddccdd"))
 	feedItemId := starling.FeedItemID(uuid.MustParse("11221122-1122-1122-1122-112211221122"))
+	startTime := testutil.MustParse(t, "2025-02-19T00:00:00Z", func(s string) (time.Time, error) {
+		return time.Parse(time.RFC3339, s)
+	})
+	endTime := testutil.MustParse(t, "2025-02-20T00:00:00Z", func(s string) (time.Time, error) {
+		return time.Parse(time.RFC3339, s)
+	})
 
-	startTime, err := time.Parse(time.RFC3339, "2025-02-19T00:00:00Z")
-	require.NoError(t, err)
-
-	endTime, err := time.Parse(time.RFC3339, "2025-02-20T00:00:00Z")
-	require.NoError(t, err)
-
-	tests := []struct {
-		name                string
-		opts                starling.FetchTransactionOptions
-		expectedQueryParams map[string]string
-		expectedHeaders     map[string]string
-		expectedLength      int
+	tests := map[string]struct {
+		name          string
+		route         testutil.HTTPTestRoute
+		opts          starling.FetchTransactionOptions
+		expectedItems []*starling.FeedItem
+		expectedErr   error
+		assertFn      func(t *testing.T, items []*starling.FeedItem)
 	}{
-		{
-			name: "successful fetch",
+		"successful fetch": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/transactions-between", accountId.String(), categoryId.String()),
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+					query.Add("minTransactionTimestamp", "2025-02-19T00:00:00Z")
+					query.Add("maxTransactionTimestamp", "2025-02-20T00:00:00Z")
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-items.json")(w, r)
+				},
+			},
 			opts: starling.FetchTransactionOptions{
 				AccountID:  accountId,
 				CategoryID: categoryId,
 				Start:      startTime,
 				End:        endTime,
 			},
-			expectedQueryParams: map[string]string{
-				"minTransactionTimestamp": "2025-02-19T00:00:00Z",
-				"maxTransactionTimestamp": "2025-02-20T00:00:00Z",
-			},
-			expectedHeaders: map[string]string{
-				"Authorization": token,
-			},
-			expectedLength: 1,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+			expectedItems: testutil.MarshalTestDataFile[struct {
+				FeedItems []*starling.FeedItem `json:"feedItems"`
+			}](t, "feed-items.json").FeedItems,
+			assertFn: func(t *testing.T, items []*starling.FeedItem) {
+				t.Helper()
 
-			route := testutil.HTTPTestRoute{
+				require.Len(t, items, 1)
+				require.Equal(t, feedItemId, items[0].ID)
+			},
+		},
+		"returns error when invalid options": {
+			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/transactions-between", accountId.String(), categoryId.String()),
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					testutil.AssertRequest(t, r, http.MethodGet, test.expectedHeaders, test.expectedQueryParams)
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+					query.Add("minTransactionTimestamp", "2025-02-19T00:00:00Z")
+					query.Add("maxTransactionTimestamp", "2025-02-20T00:00:00Z")
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
 					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-items.json")(w, r)
 				},
-			}
+			},
+			opts: starling.FetchTransactionOptions{
+				End:       time.Now().Add(-24 * time.Hour),
+				Start:     time.Now(),
+				AccountID: accountId,
+			},
+			expectedErr: errors.New("start time must be before end time"),
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			server := testutil.NewHTTPTestServer(t, []testutil.HTTPTestRoute{route})
-			client := starling.New(&http.Client{},
-				starling.WithBaseURL(server.URL),
-				starling.WithAuthToken(token),
-			)
+			client := setup(t, test.route)
 
-			feedItems, err := client.FetchTransactionsSince(t.Context(), test.opts)
-			require.NoError(t, err, "failed to fetch feed items")
-			require.Len(t, feedItems, test.expectedLength, "unexpected number of feed items")
-
-			if len(feedItems) > 0 {
-				require.Equal(t, feedItemId, feedItems[0].ID, "feed item ID should match")
+			items, err := client.FetchTransactionsSince(t.Context(), test.opts)
+			if test.expectedErr != nil {
+				require.Empty(t, items)
+				require.ErrorContains(t, err, test.expectedErr.Error())
+			} else {
+				require.NoError(t, err)
+				require.ElementsMatch(t, items, test.expectedItems)
+				if test.assertFn != nil {
+					test.assertFn(t, items)
+				}
 			}
 		})
 	}
+}
 
-	t.Run("returns error when invalid options", func(t *testing.T) {
-		t.Parallel()
+func requireErrorEqual(t *testing.T, expectedErr starling.Error, err error) {
+	t.Helper()
 
-		client := starling.New(&http.Client{},
-			starling.WithBaseURL(""),
-			starling.WithAuthToken(token),
-		)
+	require.Error(t, err)
 
-		now := time.Now()
-		_, err := client.FetchTransactionsSince(t.Context(), starling.FetchTransactionOptions{
-			End:       now.Add(-24 * time.Hour),
-			Start:     now,
-			AccountID: accountId,
-		})
-		require.ErrorContains(t, err, "start time must be before end time")
-	})
+	var starlingErr *starling.Error
+	ok := errors.As(err, &starlingErr)
+	require.True(t, ok)
+
+	require.Equal(t, expectedErr.Code, starlingErr.Code)
+	require.Equal(t, expectedErr.Message, starlingErr.Message)
+	require.Equal(t, expectedErr.ErrorMessages, starlingErr.ErrorMessages)
 }

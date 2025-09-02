@@ -5,7 +5,7 @@
             "name": "Trip to Paris",
             "target": {
               "currency": "GBP",
-              "minorUnits": 123456
+              "minorUnits": 123457
             },
             "totalSaved": {
               "currency": "GBP",

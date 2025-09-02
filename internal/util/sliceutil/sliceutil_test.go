@@ -10,35 +10,30 @@ import (
 func TestFilter(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
+	filterFn := func(x int) bool { return x%2 == 0 }
+
+	tests := map[string]struct {
 		input    []int
 		expected []int
 	}{
-		{
-			name:     "filter even numbers",
+		"filter even numbers": {
 			input:    []int{1, 2, 3, 4, 5, 6},
 			expected: []int{2, 4, 6},
 		},
-		{
-			name:     "filter empty list",
+		"filter empty list": {
 			input:    []int{},
 			expected: []int{},
 		},
-		{
-			name:     "filter all false",
+		"filter all false": {
 			input:    []int{1, 3, 5},
 			expected: []int{},
 		},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			filter := func(x int) bool { return x%2 == 0 }
-
-			result := sliceutil.Filter(test.input, filter)
-
+			result := sliceutil.Filter(test.input, filterFn)
 			require.Equal(t, test.expected, result)
 		})
 	}
