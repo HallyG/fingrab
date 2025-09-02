@@ -1,13 +1,15 @@
-package export_test
+package exporter_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/monzo"
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
+
+	"github.com/HallyG/fingrab/internal/monzo"
+	monzoexporter "github.com/HallyG/fingrab/internal/monzo/exporter"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,35 +61,34 @@ func (s *StubMonzoClient) FetchPots(ctx context.Context, accountID monzo.Account
 	return s.Pots, nil
 }
 
-func TestNewMonzoTransactionExport(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Parallel()
+
+	t.Run("error when nil client success", func(t *testing.T) {
+		t.Parallel()
+
+		exporter, err := monzoexporter.New(nil)
+
+		require.Nil(t, exporter)
+		require.ErrorContains(t, err, "monzo client is required")
+	})
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter := export.NewMonzoTransactionExporter(nil)
-
-		require.NotNil(t, exporter)
-		require.Equal(t, 90*24*time.Hour, exporter.MaxDateRange())
-		require.Equal(t, export.ExportTypeMonzo, exporter.Type())
-	})
-
-	t.Run("registry", func(t *testing.T) {
-		t.Parallel()
-
-		exporter, err := export.NewExporter(export.ExportTypeMonzo, export.Options{})
+		exporter, err := monzoexporter.New(&StubMonzoClient{})
 
 		require.NoError(t, err)
 		require.NotNil(t, exporter)
 		require.Equal(t, 90*24*time.Hour, exporter.MaxDateRange())
-		require.Equal(t, export.ExportTypeMonzo, exporter.Type())
+		require.Equal(t, monzoexporter.ExportTypeMonzo, exporter.Type())
 	})
 }
 
 func TestExportMonzoTransactions(t *testing.T) {
 	t.Parallel()
 
-	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, export.Exporter) {
+	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, *monzoexporter.TransactionExporter) {
 		t.Helper()
 
 		accountID := "acc_12345"
@@ -104,7 +105,10 @@ func TestExportMonzoTransactions(t *testing.T) {
 			Transactions: [][]*monzo.Transaction{txns},
 		}
 
-		return accounts[0], export.NewMonzoTransactionExporter(client)
+		exporter, err := monzoexporter.New(client)
+		require.NoError(t, err)
+
+		return accounts[0], exporter
 	}
 
 	now := time.Now()

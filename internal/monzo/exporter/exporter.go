@@ -1,59 +1,51 @@
-package export
+package exporter
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/monzo"
 	"github.com/HallyG/fingrab/internal/domain"
+	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/monzo"
+	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/rs/zerolog"
 )
 
 const (
-	ExportTypeMonzo       = ExportType("Monzo")
+	ExportTypeMonzo       = export.ExportType("Monzo")
 	Monzo                 = "Monzo"
 	monzoTransactionBatch = 100
 	monzoTimeFormat       = "2006-01-02"
 	monzoMaxDateRange     = 90 * 24 * time.Hour // 90 days
 )
 
-func init() {
-	Register(ExportTypeMonzo, func(opts Options) (Exporter, error) {
-		client := &http.Client{
-			Timeout: opts.Timeout,
-		}
+var _ export.Exporter = (*TransactionExporter)(nil)
 
-		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
-
-		return NewMonzoTransactionExporter(api), nil
-	})
-}
-
-var _ Exporter = (*monzoTransactionExporter)(nil)
-
-type monzoTransactionExporter struct {
+type TransactionExporter struct {
 	api monzo.Client
 }
 
-func NewMonzoTransactionExporter(api monzo.Client) *monzoTransactionExporter {
-	return &monzoTransactionExporter{
-		api: api,
+func New(api monzo.Client) (*TransactionExporter, error) {
+	if api == nil {
+		return nil, errors.New("monzo client is required")
 	}
+	return &TransactionExporter{
+		api: api,
+	}, nil
 }
 
-func (m *monzoTransactionExporter) Type() ExportType {
+func (m *TransactionExporter) Type() export.ExportType {
 	return ExportTypeMonzo
 }
 
-func (m *monzoTransactionExporter) MaxDateRange() time.Duration {
+func (m *TransactionExporter) MaxDateRange() time.Duration {
 	return monzoMaxDateRange
 }
 
-func (m *monzoTransactionExporter) ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error) {
+func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid opts: %w", err)
 	}
@@ -84,14 +76,8 @@ func (m *monzoTransactionExporter) ExportTransactions(ctx context.Context, opts 
 		Int("transaction.count", len(transactions)).
 		Msg("successfully exported Monzo transactions")
 
-	return m.ToDomainTransactions(transactions)
-}
-
-func (m *monzoTransactionExporter) ToDomainTransactions(monzoTxns []*monzo.Transaction) ([]*domain.Transaction, error) {
-	domainTxns := make([]*domain.Transaction, 0)
-
-	for _, txn := range monzoTxns {
-		domainTxn := &domain.Transaction{
+	return sliceutil.Map(transactions, func(txn *monzo.Transaction) *domain.Transaction {
+		return &domain.Transaction{
 			Amount:    txn.Amount,
 			Reference: m.determineReference(txn),
 			Category:  txn.CategoryName,
@@ -100,15 +86,11 @@ func (m *monzoTransactionExporter) ToDomainTransactions(monzoTxns []*monzo.Trans
 			BankName:  Monzo,
 			Notes:     txn.UserNotes,
 		}
-
-		domainTxns = append(domainTxns, domainTxn)
-	}
-
-	return domainTxns, nil
+	}), nil
 }
 
 // Enrich Transaction Descriptions with Pot Name.
-func (m *monzoTransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
+func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
 	zerolog.Ctx(ctx).Debug().
 		Ctx(ctx).
 		Str("bank", Monzo).
@@ -141,7 +123,7 @@ func (m *monzoTransactionExporter) enrichTransactionDescriptions(ctx context.Con
 	return nil
 }
 
-func (m *monzoTransactionExporter) fetchAccount(ctx context.Context, accountID string) (*monzo.Account, error) {
+func (m *TransactionExporter) fetchAccount(ctx context.Context, accountID string) (*monzo.Account, error) {
 	accounts, err := m.api.FetchAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -181,7 +163,7 @@ func (m *monzoTransactionExporter) fetchAccount(ctx context.Context, accountID s
 	return selectedAccount, nil
 }
 
-func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accountID monzo.AccountID, startDate time.Time, endDate time.Time) ([]*monzo.Transaction, error) {
+func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID monzo.AccountID, startDate time.Time, endDate time.Time) ([]*monzo.Transaction, error) {
 	var transactions []*monzo.Transaction
 	var sinceID monzo.TransactionID
 
@@ -255,7 +237,7 @@ func (m *monzoTransactionExporter) fetchTransactions(ctx context.Context, accoun
 	return transactions, nil
 }
 
-func (m *monzoTransactionExporter) determineReference(txn *monzo.Transaction) string {
+func (m *TransactionExporter) determineReference(txn *monzo.Transaction) string {
 	reference := txn.Description
 
 	switch {

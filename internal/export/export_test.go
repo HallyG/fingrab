@@ -14,19 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAll(t *testing.T) {
-	t.Parallel()
-
-	t.Run("returns expected types", func(t *testing.T) {
-		t.Parallel()
-
-		exportTypes := export.All()
-
-		require.Contains(t, exportTypes, export.ExportTypeMonzo)
-		require.Contains(t, exportTypes, export.ExportTypeStarling)
-	})
-}
-
 func TestNewExporter(t *testing.T) {
 	t.Parallel()
 
@@ -200,6 +187,7 @@ type StubFormatter struct {
 func (s *StubExporter) Type() export.ExportType {
 	return ExportTypeStub
 }
+
 func (s *StubExporter) MaxDateRange() time.Duration {
 	return 24 * time.Hour
 }

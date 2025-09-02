@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/monzo"
+	"github.com/HallyG/fingrab/internal/monzo"
 	"github.com/HallyG/fingrab/internal/util/testutil"
 	"github.com/stretchr/testify/require"
 )

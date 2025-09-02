@@ -1,60 +1,51 @@
-package export
+package exporter
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/starling"
 	"github.com/HallyG/fingrab/internal/domain"
+	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/starling"
 	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
 const (
-	ExportTypeStarling   = ExportType("Starling")
+	ExportTypeStarling   = export.ExportType("Starling")
 	Starling             = "Starling"
 	starlingTimeFormat   = "2006-01-02"
 	starlingMaxDateRange = 0
 )
 
-func init() {
-	Register(ExportTypeStarling, func(opts Options) (Exporter, error) {
-		client := &http.Client{
-			Timeout: opts.Timeout,
-		}
+var _ export.Exporter = (*TransactionExporter)(nil)
 
-		api := starling.New(client, starling.WithAuthToken(opts.BearerAuthToken()))
-
-		return NewStarlingTransactionExporter(api), nil
-	})
-}
-
-var _ Exporter = (*starlingTransactionExporter)(nil)
-
-type starlingTransactionExporter struct {
+type TransactionExporter struct {
 	api starling.Client
 }
 
-func NewStarlingTransactionExporter(api starling.Client) *starlingTransactionExporter {
-	return &starlingTransactionExporter{
-		api: api,
+func New(api starling.Client) (*TransactionExporter, error) {
+	if api == nil {
+		return nil, errors.New("starling client is required")
 	}
+	return &TransactionExporter{
+		api: api,
+	}, nil
 }
 
-func (s *starlingTransactionExporter) Type() ExportType {
+func (s *TransactionExporter) Type() export.ExportType {
 	return ExportTypeStarling
 }
 
-func (s *starlingTransactionExporter) MaxDateRange() time.Duration {
+func (s *TransactionExporter) MaxDateRange() time.Duration {
 	return starlingMaxDateRange
 }
 
-func (s *starlingTransactionExporter) ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error) {
+func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid opts: %w", err)
 	}
@@ -93,13 +84,7 @@ func (s *starlingTransactionExporter) ExportTransactions(ctx context.Context, op
 		Int("transaction.count", len(transactions)).
 		Msg("successfully exported Starling transactions")
 
-	return s.ToDomainTransactions(transactions)
-}
-
-func (s *starlingTransactionExporter) ToDomainTransactions(starlingTxns []*starling.FeedItem) ([]*domain.Transaction, error) {
-	domainTxns := make([]*domain.Transaction, 0)
-
-	for _, txn := range starlingTxns {
+	return sliceutil.Map(transactions, func(txn *starling.FeedItem) *domain.Transaction {
 		reference := s.determineReference(txn)
 
 		depositSignum := int64(-1)
@@ -109,7 +94,7 @@ func (s *starlingTransactionExporter) ToDomainTransactions(starlingTxns []*starl
 			depositSignum = 1
 		}
 
-		domainTxn := &domain.Transaction{
+		return &domain.Transaction{
 			Amount: domain.Money{
 				MinorUnit: txn.Amount.MinorUnit * depositSignum,
 				Currency:  txn.Amount.Currency,
@@ -121,14 +106,10 @@ func (s *starlingTransactionExporter) ToDomainTransactions(starlingTxns []*starl
 			BankName:  Starling,
 			Notes:     txn.UserNote,
 		}
-
-		domainTxns = append(domainTxns, domainTxn)
-	}
-
-	return domainTxns, nil
+	}), nil
 }
 
-func (s *starlingTransactionExporter) fetchAccount(ctx context.Context, accountID starling.AccountID) (*starling.Account, error) {
+func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starling.AccountID) (*starling.Account, error) {
 	accounts, err := s.api.FetchAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -167,7 +148,7 @@ func (s *starlingTransactionExporter) fetchAccount(ctx context.Context, accountI
 	return selectedAccount, nil
 }
 
-func (s *starlingTransactionExporter) fetchTransactionsSince(ctx context.Context, accountID starling.AccountID, categoryID starling.CategoryID, start time.Time, end time.Time) ([]*starling.FeedItem, error) {
+func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accountID starling.AccountID, categoryID starling.CategoryID, start time.Time, end time.Time) ([]*starling.FeedItem, error) {
 	zerolog.Ctx(ctx).Info().
 		Str("bank", Starling).
 		Str("account.id", accountID.String()).
@@ -210,7 +191,7 @@ func (s *starlingTransactionExporter) fetchTransactionsSince(ctx context.Context
 	return filteredTransactions, nil
 }
 
-func (s *starlingTransactionExporter) determineReference(txn *starling.FeedItem) string {
+func (s *TransactionExporter) determineReference(txn *starling.FeedItem) string {
 	if txn.CategoryName == "TRANSFERS" && txn.CounterPartyType == "CATEGORY" && txn.Source == "INTERNAL_TRANSFER" && txn.SourceSubType == "" {
 		return "Savings Pot"
 	}
@@ -233,7 +214,7 @@ func (s *starlingTransactionExporter) determineReference(txn *starling.FeedItem)
 	return strings.TrimSpace(txn.Description)
 }
 
-func (s *starlingTransactionExporter) fetchRoundUpTransactions(ctx context.Context, accountID starling.AccountID, start time.Time, end time.Time, transactionsWithRoundUp []*starling.FeedItem) ([]*starling.FeedItem, error) {
+func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, accountID starling.AccountID, start time.Time, end time.Time, transactionsWithRoundUp []*starling.FeedItem) ([]*starling.FeedItem, error) {
 	seenCategoryIDs := make(map[starling.CategoryID]struct{})
 	roundUpTransactions := make([]*starling.FeedItem, 0)
 

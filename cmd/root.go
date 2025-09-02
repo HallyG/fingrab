@@ -4,9 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/monzo"
+	monzoexporter "github.com/HallyG/fingrab/internal/monzo/exporter"
+	"github.com/HallyG/fingrab/internal/starling"
+	starlingexporter "github.com/HallyG/fingrab/internal/starling/exporter"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +41,26 @@ func init() {
 	}
 
 	rootCmd.AddCommand(exportCmd)
+}
+
+func init() {
+	export.Register(starlingexporter.ExportTypeStarling, func(opts export.Options) (export.Exporter, error) {
+		client := &http.Client{
+			Timeout: opts.Timeout,
+		}
+
+		api := starling.New(client, starling.WithAuthToken(opts.BearerAuthToken()))
+		return starlingexporter.New(api)
+	})
+
+	export.Register(monzoexporter.ExportTypeMonzo, func(opts export.Options) (export.Exporter, error) {
+		client := &http.Client{
+			Timeout: opts.Timeout,
+		}
+
+		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
+		return monzoexporter.New(api)
+	})
 }
 
 func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Writer) error {
