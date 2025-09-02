@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
@@ -48,9 +49,15 @@ func (o Options) BearerAuthToken() string {
 	return token
 }
 
-var registry = make(map[ExportType]ExporterConstructor)
+var (
+	registry     = make(map[ExportType]ExporterConstructor)
+	registryLock = sync.RWMutex{}
+)
 
 func Register(exportType ExportType, constructor ExporterConstructor) {
+	registryLock.Lock()
+	defer registryLock.Unlock()
+
 	registry[exportType] = constructor
 }
 

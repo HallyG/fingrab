@@ -8,6 +8,8 @@ import (
 )
 
 func TestFilter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    []int

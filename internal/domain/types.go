@@ -13,7 +13,7 @@ type Money struct {
 	Currency  string `json:"currency"` // ISO4217 Alpha Currency code
 }
 
-func (m *Money) ToMajorUnit() float64 {
+func (m Money) ToMajorUnit() float64 {
 	currency := money.GetCurrency(m.Currency)
 	if currency == nil {
 		return float64(m.MinorUnit)
@@ -22,7 +22,7 @@ func (m *Money) ToMajorUnit() float64 {
 	return float64(m.MinorUnit) / math.Pow10(currency.Fraction)
 }
 
-func (m *Money) String() string {
+func (m Money) String() string {
 	currency := money.GetCurrency(m.Currency)
 	if currency == nil {
 		return fmt.Sprintf("invalid currency: %d (%s)", m.MinorUnit, m.Currency)

@@ -9,6 +9,8 @@ import (
 )
 
 func TestUnmarshallJSONUUID(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		data         []byte

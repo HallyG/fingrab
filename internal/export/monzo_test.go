@@ -60,6 +60,8 @@ func (s *StubMonzoClient) FetchPots(ctx context.Context, accountID monzo.Account
 }
 
 func TestNewMonzoTransactionExport(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
@@ -83,6 +85,8 @@ func TestNewMonzoTransactionExport(t *testing.T) {
 }
 
 func TestExportMonzoTransactions(t *testing.T) {
+	t.Parallel()
+
 	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, export.Exporter) {
 		t.Helper()
 
@@ -206,8 +210,8 @@ func TestExportMonzoTransactions(t *testing.T) {
 					AuthToken: "test-token",
 				},
 			)
-			require.NoError(t, err)
 
+			require.NoError(t, err)
 			require.ElementsMatch(t, res, test.expectedTransactions)
 		})
 	}
