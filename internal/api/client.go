@@ -18,30 +18,21 @@ const (
 	defaultMaxRetryWaitTime = 10 * time.Second
 )
 
-type Client interface {
-	ExecuteRequest(ctx context.Context, method, url string, values url.Values, result any) (*resty.Response, error)
-}
+type Option func(*resty.Client)
 
-type BaseClient struct {
-	resty               *resty.Client
-	errorUnmarshallerFn func(r *resty.Response) error
-}
-
-type Option func(*BaseClient)
-
-func New(baseURL string, httpClient *http.Client, opts ...Option) *BaseClient {
-	c := &BaseClient{}
-	c.resty = resty.NewWithClient(httpClient).
+func New(baseURL string, httpClient *http.Client, opts ...Option) *resty.Client {
+	client := resty.NewWithClient(httpClient).
 		SetBaseURL(baseURL).
 		SetTimeout(defaultTimeout).
 		SetRetryCount(defaultRetryCount).
 		SetRetryWaitTime(defaultRetryWaitTime).
 		SetRetryMaxWaitTime(defaultMaxRetryWaitTime).
-		AddResponseMiddleware(func(c *resty.Client, r *resty.Response) error {
+		AddResponseMiddleware(func(client *resty.Client, r *resty.Response) error {
 			startTime := r.Request.Time
 			endTime := r.ReceivedAt()
 
 			req := r.Request
+
 			zerolog.Ctx(req.Context()).Debug().
 				Str("http.url", req.URL).
 				Str("http.method", req.Method).
@@ -52,7 +43,8 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *BaseClient {
 			return nil
 		}).
 		AddRetryConditions(func(r *resty.Response, err error) bool {
-			return err != nil || r.StatusCode() >= 500
+			retry := err != nil || r.StatusCode() >= 500
+			return retry
 		})
 
 	for _, opt := range opts {
@@ -60,49 +52,50 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *BaseClient {
 			continue
 		}
 
-		opt(c)
+		opt(client)
 	}
 
-	return c
+	return client
 }
 
 func WithAuthToken(authToken string) Option {
-	return func(c *BaseClient) {
-		c.resty.SetHeader("Authorization", authToken)
+	return func(c *resty.Client) {
+		c.SetHeader("Authorization", authToken)
 	}
 }
 
 func WithBaseURL(url string) Option {
-	return func(c *BaseClient) {
-		c.resty.SetBaseURL(url)
+	return func(c *resty.Client) {
+		c.SetBaseURL(url)
 	}
 }
 
-func WithErrorUnmarshaller(unmarshallerFn func(r *resty.Response) error) Option {
-	return func(c *BaseClient) {
-		c.errorUnmarshallerFn = unmarshallerFn
+func WithError[E error]() Option {
+	return func(c *resty.Client) {
+		var err E
+		c.SetError(&err)
 	}
 }
 
-func (c *BaseClient) ExecuteRequest(ctx context.Context, method, url string, values url.Values, result any) (*resty.Response, error) {
-	req := c.resty.R().
+func ExecuteRequest[T any](ctx context.Context, client *resty.Client, method, url string, values url.Values) (*T, error) {
+	var result T
+
+	resp, err := client.R().
 		SetContext(ctx).
-		SetResult(result).
+		SetResult(&result).
 		SetUnescapeQueryParams(false).
-		SetQueryParamsFromValues(values)
-
-	resp, err := req.Execute(method, url)
+		SetQueryParamsFromValues(values).
+		Execute(method, url)
 	if err != nil {
-		return resp, fmt.Errorf("%s %s failed: %w", method, resp.Request.URL, err)
+		return nil, fmt.Errorf("%s %s failed: %w", method, resp.Request.URL, err)
 	}
 
 	if resp.IsError() {
-		if c.errorUnmarshallerFn != nil {
-			return nil, c.errorUnmarshallerFn(resp)
+		if err, ok := resp.Error().(error); ok {
+			return nil, err
 		}
-
-		return nil, fmt.Errorf("HTTP request failed with status %d: %s", resp.StatusCode(), resp.String())
+		return nil, fmt.Errorf("http %d: %s", resp.StatusCode(), resp.String())
 	}
 
-	return resp, nil
+	return &result, nil
 }

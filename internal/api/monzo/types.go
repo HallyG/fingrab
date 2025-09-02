@@ -124,9 +124,8 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 type Error struct {
-	HTTPStatus int
-	Code       string `json:"code"`
-	Message    string `json:"message"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 /*
@@ -135,22 +134,5 @@ Error (statusCode=400, code=bad_request.invalid_time_range, message=The time ran
 Error (statusCode=403, code=forbidden.verification_required, message=Verification required) when requesting old transactions.
 */
 func (err Error) Error() string {
-	return fmt.Sprintf("%s (http status=%d)", err.Message, err.HTTPStatus)
-}
-
-func UnmarshalError(status int, body []byte) error {
-	if len(body) != 0 {
-		apiError := Error{}
-		if err := json.Unmarshal(body, &apiError); err == nil && apiError.Code != "" {
-			apiError.HTTPStatus = status
-		}
-
-		return apiError
-	}
-
-	return Error{
-		HTTPStatus: status,
-		Code:       "unknown",
-		Message:    "unknown",
-	}
+	return fmt.Sprintf("%s (code=%s)", err.Message, err.Code)
 }

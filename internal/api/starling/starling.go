@@ -9,19 +9,15 @@ import (
 
 	"github.com/HallyG/fingrab/internal/api"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	resty "resty.dev/v3"
+	"resty.dev/v3"
 )
 
 const (
-	prodAPI                 = "https://api.starlingbank.com"
-	getAccountsRoute        = "/api/v2/accounts"
-	getTransactionsRoute    = "/api/v2/feed/account/%s/category/%s/transactions-between"
-	getFeedItemRoute        = "/api/v2/feed/account/%s/category/%s/%s"
-	getSavingsRoute         = "/api/v2/account/%s/savings-goals"
-	defaultTimeout          = 1 * time.Minute
-	defaultRetryCount       = 3
-	defaultRetryWaitTime    = 2 * time.Second
-	defaultMaxRetryWaitTime = 10 * time.Second
+	prodAPI              = "https://api.starlingbank.com"
+	getAccountsRoute     = "/api/v2/accounts"
+	getTransactionsRoute = "/api/v2/feed/account/%s/category/%s/transactions-between"
+	getFeedItemRoute     = "/api/v2/feed/account/%s/category/%s/%s"
+	getSavingsRoute      = "/api/v2/account/%s/savings-goals"
 )
 
 type Client interface {
@@ -34,7 +30,7 @@ type Client interface {
 var _ Client = (*client)(nil)
 
 type client struct {
-	api *api.BaseClient
+	api *resty.Client
 }
 
 type Option func(*client)
@@ -44,9 +40,7 @@ func New(httpClient *http.Client, opts ...Option) *client {
 		api: api.New(
 			prodAPI,
 			httpClient,
-			api.WithErrorUnmarshaller(func(r *resty.Response) error {
-				return UnmarshalError(r.StatusCode(), r.Bytes())
-			}),
+			api.WithError[Error](),
 		),
 	}
 
@@ -74,11 +68,11 @@ func WithBaseURL(baseURL string) Option {
 }
 
 func (c *client) FetchFeedItem(ctx context.Context, accountID AccountID, categoryID CategoryID, feedItemID FeedItemID) (*FeedItem, error) {
-	result := &FeedItem{}
-
-	url := fmt.Sprintf(getFeedItemRoute, accountID, categoryID, feedItemID)
-
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, url, nil, &result)
+	result, err := api.ExecuteRequest[FeedItem](ctx, c.api,
+		http.MethodGet,
+		fmt.Sprintf(getFeedItemRoute, accountID, categoryID, feedItemID),
+		url.Values{},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch feed item: %w", err)
 	}
@@ -87,11 +81,14 @@ func (c *client) FetchFeedItem(ctx context.Context, accountID AccountID, categor
 }
 
 func (c *client) FetchAccounts(ctx context.Context) ([]*Account, error) {
-	var result struct {
+	result, err := api.ExecuteRequest[struct {
 		Accounts []*Account `json:"accounts"`
-	}
-
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, getAccountsRoute, nil, &result)
+	}](
+		ctx, c.api,
+		http.MethodGet,
+		getAccountsRoute,
+		url.Values{},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch accounts: %w", err)
 	}
@@ -100,16 +97,44 @@ func (c *client) FetchAccounts(ctx context.Context) ([]*Account, error) {
 }
 
 func (c *client) FetchSavingsGoals(ctx context.Context, accountID AccountID) ([]*SavingsGoal, error) {
-	var result struct {
+	result, err := api.ExecuteRequest[struct {
 		SavingsGoals []*SavingsGoal `json:"savingsGoalList"`
-	}
-
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, fmt.Sprintf(getSavingsRoute, accountID.String()), nil, &result)
+	}](
+		ctx, c.api,
+		http.MethodGet,
+		fmt.Sprintf(getSavingsRoute, accountID.String()),
+		url.Values{},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch savings goals: %w", err)
 	}
 
 	return result.SavingsGoals, nil
+}
+
+func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransactionOptions) ([]*FeedItem, error) {
+	if err := opts.Validate(ctx); err != nil {
+		return nil, err
+	}
+
+	values := url.Values{}
+	values.Add("minTransactionTimestamp", opts.Start.Format(time.RFC3339))
+	if !opts.End.IsZero() {
+		values.Add("maxTransactionTimestamp", opts.End.Format(time.RFC3339))
+	}
+
+	result, err := api.ExecuteRequest[struct {
+		FeedItems []*FeedItem `json:"feedItems"`
+	}](ctx, c.api,
+		http.MethodGet,
+		fmt.Sprintf(getTransactionsRoute, opts.AccountID, opts.CategoryID),
+		values,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch transactions: %w", err)
+	}
+
+	return result.FeedItems, nil
 }
 
 type FetchTransactionOptions struct {
@@ -119,8 +144,8 @@ type FetchTransactionOptions struct {
 	End        time.Time
 }
 
-func (fto *FetchTransactionOptions) Validate(ctx context.Context) error {
-	return validation.ValidateStructWithContext(ctx, fto,
+func (fto FetchTransactionOptions) Validate(ctx context.Context) error {
+	return validation.ValidateStructWithContext(ctx, &fto,
 		validation.Field(&fto.AccountID, validation.Required.Error("account ID is required")),
 		validation.Field(&fto.CategoryID, validation.Required.Error("category ID is required")),
 		validation.Field(&fto.End, validation.Required.Error("end time is required")),
@@ -137,29 +162,4 @@ func (fto *FetchTransactionOptions) Validate(ctx context.Context) error {
 			return nil
 		}))),
 	)
-}
-
-func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransactionOptions) ([]*FeedItem, error) {
-	if err := opts.Validate(ctx); err != nil {
-		return nil, err
-	}
-
-	var result struct {
-		FeedItems []*FeedItem `json:"feedItems"`
-	}
-
-	values := url.Values{}
-	values.Add("minTransactionTimestamp", opts.Start.Format(time.RFC3339))
-	if !opts.End.IsZero() {
-		values.Add("maxTransactionTimestamp", opts.End.Format(time.RFC3339))
-	}
-
-	url := fmt.Sprintf(getTransactionsRoute, opts.AccountID, opts.CategoryID)
-
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, url, values, &result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch transactions: %w", err)
-	}
-
-	return result.FeedItems, nil
 }
