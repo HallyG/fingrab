@@ -63,7 +63,6 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "starting export of transactions",
-		slog.String("bank", Starling),
 		slog.String("export.start", opts.StartDate.Format(starlingTimeFormat)),
 		slog.String("export.end", opts.EndDate.Format(starlingTimeFormat)),
 	)
@@ -81,7 +80,6 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "successfully exported transactions",
-		slog.String("bank", Starling),
 		slog.Int("transaction.count", len(transactions)),
 	)
 
@@ -131,12 +129,10 @@ func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starli
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "found accounts",
-		slog.String("bank", Starling),
 		slog.Int("account.total", len(accountIDs)),
 	)
 
 	log.FromContext(ctx).InfoContext(ctx, "selected account",
-		slog.String("bank", Starling),
 		slog.String("account.id", selectedAccount.ID.String()),
 		slog.String("account.category.id", selectedAccount.DefaultCategoryID.String()),
 	)
@@ -146,7 +142,6 @@ func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starli
 
 func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accountID starling.AccountID, categoryID starling.CategoryID, start time.Time, end time.Time) ([]*starling.FeedItem, error) {
 	log.FromContext(ctx).InfoContext(ctx, "fetching transactions",
-		slog.String("bank", Starling),
 		slog.String("account.id", accountID.String()),
 		slog.String("account.category.id", categoryID.String()),
 		slog.String("start", start.Format(starlingTimeFormat)),
@@ -178,7 +173,6 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 	})
 
 	log.FromContext(ctx).InfoContext(ctx, "fetched transactions",
-		slog.String("bank", Starling),
 		slog.String("account.id", accountID.String()),
 		slog.String("account.category.id", categoryID.String()),
 		slog.Int("transaction.total", len(filteredTransactions)),
@@ -215,7 +209,6 @@ func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, acco
 	roundUpTransactions := make([]*starling.FeedItem, 0)
 
 	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
-		slog.String("bank", Starling),
 		slog.String("account.id", accountID.String()),
 	)
 

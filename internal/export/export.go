@@ -105,7 +105,7 @@ func Transactions(ctx context.Context, exportType ExportType, opts Options, form
 		return fmt.Errorf("date range is too long, max is %d days", int(days))
 	}
 
-	logger := log.FromContext(ctx).With(slog.String("exporter.type", string(exportType)))
+	logger := log.FromContext(ctx).With(slog.String("bank", string(exportType)))
 	ctx = log.WithContext(ctx, logger)
 
 	transactions, err := exporter.ExportTransactions(ctx, opts)

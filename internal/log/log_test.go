@@ -49,8 +49,12 @@ func TestNew(t *testing.T) {
 			expectedVerbose: true,
 		},
 		"json format": {
-			opts:         []log.Option{log.WithJSONFormat(true)},
+			opts:         []log.Option{log.WithJSONHandler()},
 			expectedJSON: true,
+		},
+		"text format": {
+			opts:         []log.Option{log.WithTextHandler(false)},
+			expectedJSON: false,
 		},
 		"populates source attribute": {
 			expectedAttrs: []string{"source=log_test.go"},
@@ -105,10 +109,8 @@ func assertIsJSONHandler(t *testing.T, logger *slog.Logger, expectedJSON bool) {
 	switch handler.(type) {
 	case *slog.JSONHandler:
 		isJSONHandler = true
-	case *slog.TextHandler:
-		isJSONHandler = false
 	default:
-		t.Fatalf("unexpected slog handler type: %T", logger.Handler())
+		isJSONHandler = false
 	}
 
 	require.Equal(t, expectedJSON, isJSONHandler)

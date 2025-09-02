@@ -5,11 +5,14 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+
+	"github.com/lmittmann/tint"
 )
 
 type params struct {
 	verbose    bool
 	jsonFormat bool
+	colour     bool
 	attrs      []slog.Attr
 	writer     io.Writer
 }
@@ -23,10 +26,18 @@ func WithVerbose(verbose bool) Option {
 	}
 }
 
-// WithJSONFormat enables JSON formatting for logs
-func WithJSONFormat(json bool) Option {
+// WithJSONHandler enables JSON formatting for logs
+func WithJSONHandler() Option {
 	return func(params *params) {
-		params.jsonFormat = json
+		params.jsonFormat = true
+	}
+}
+
+// WithTextHandler enables JSON formatting for logs
+func WithTextHandler(colourOutput bool) Option {
+	return func(params *params) {
+		params.jsonFormat = false
+		params.colour = colourOutput
 	}
 }
 
@@ -76,17 +87,23 @@ func New(opts ...Option) *slog.Logger {
 		level = slog.LevelDebug
 	}
 
-	handlerOpts := &slog.HandlerOptions{
+	var handler slog.Handler = slog.NewTextHandler(params.writer, &slog.HandlerOptions{
 		Level:       level,
 		AddSource:   true,
 		ReplaceAttr: replaceSourceAttr,
-	}
-
-	var handler slog.Handler
+	})
 	if params.jsonFormat {
-		handler = slog.NewJSONHandler(params.writer, handlerOpts)
-	} else {
-		handler = slog.NewTextHandler(params.writer, handlerOpts)
+		handler = slog.NewJSONHandler(params.writer, &slog.HandlerOptions{
+			Level:       level,
+			AddSource:   true,
+			ReplaceAttr: replaceSourceAttr,
+		})
+	} else if params.colour {
+		handler = tint.NewHandler(params.writer, &tint.Options{
+			Level:       level,
+			AddSource:   true,
+			ReplaceAttr: replaceSourceAttrWithColour,
+		})
 	}
 
 	attrs := []slog.Attr{}
@@ -94,7 +111,31 @@ func New(opts ...Option) *slog.Logger {
 	return slog.New(handler.WithAttrs(attrs))
 }
 
+func replaceSourceAttrWithColour(groups []string, a slog.Attr) slog.Attr {
+	if a.Value.Kind() == slog.KindAny {
+		if _, ok := a.Value.Any().(error); ok {
+			return tint.Attr(9, a)
+		}
+	}
+
+	if a.Key == "bank" && a.Value.Kind() == slog.KindString {
+		return tint.Attr(11, a)
+	}
+
+	return replaceSourceAttr(groups, a)
+}
+
 func replaceSourceAttr(groups []string, a slog.Attr) slog.Attr {
+	if a.Value.Kind() == slog.KindAny {
+		if _, ok := a.Value.Any().(error); ok {
+			return tint.Attr(9, a)
+		}
+	}
+
+	if a.Key == "bank" && a.Value.Kind() == slog.KindString {
+		return tint.Attr(11, a)
+	}
+
 	if a.Key != slog.SourceKey {
 		return a
 	}

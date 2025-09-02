@@ -52,7 +52,6 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "starting export of transactions",
-		slog.String("bank", Monzo),
 		slog.String("export.start", opts.StartDate.Format(monzoTimeFormat)),
 		slog.String("export.end", opts.EndDate.Format(monzoTimeFormat)),
 	)
@@ -73,7 +72,6 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "successfully exported transactions",
-		slog.String("bank", Monzo),
 		slog.Int("transaction.count", len(transactions)),
 	)
 
@@ -93,7 +91,6 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 // Enrich Transaction Descriptions with Pot Name.
 func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
 	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
-		slog.String("bank", Monzo),
 		slog.String("account.id", string(accountID)),
 	)
 
@@ -103,7 +100,6 @@ func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context,
 	}
 
 	log.FromContext(ctx).DebugContext(ctx, "fetched pots",
-		slog.String("bank", Monzo),
 		slog.String("account.id", string(accountID)),
 		slog.Int("pots.total", len(pots)),
 	)
@@ -143,12 +139,10 @@ func (m *TransactionExporter) fetchAccount(ctx context.Context, accountID string
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "found accounts",
-		slog.String("bank", Monzo),
 		slog.Int("account.total", len(accountIDs)),
 	)
 
 	log.FromContext(ctx).InfoContext(ctx, "selected account",
-		slog.String("bank", Monzo),
 		slog.String("account.id", string(selectedAccount.ID)),
 	)
 
@@ -163,7 +157,6 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 	limit := monzoTransactionBatch
 
 	log.FromContext(ctx).InfoContext(ctx, "fetching transactions",
-		slog.String("bank", Monzo),
 		slog.String("account.id", string(accountID)),
 		slog.String("start", startDate.Format(monzoTimeFormat)),
 		slog.String("end", endDate.Format(monzoTimeFormat)),
@@ -220,7 +213,6 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "fetched transactions",
-		slog.String("bank", Monzo),
 		slog.String("account.id", string(accountID)),
 		slog.Int("transaction.total", len(transactions)),
 	)

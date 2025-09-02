@@ -83,7 +83,7 @@ func setupLogger(cmd *cobra.Command, _ []string) error {
 	logger := log.New(
 		log.WithWriter(cmd.ErrOrStderr()),
 		log.WithVerbose(verbose),
-		log.WithJSONFormat(false),
+		log.WithTextHandler(true),
 		log.WithAttrs(
 			slog.String("build.version", BuildVersion),
 			slog.String("build.sha", BuildShortSHA),
