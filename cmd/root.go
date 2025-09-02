@@ -30,20 +30,6 @@ var (
 )
 
 func init() {
-	rootCmd.SilenceUsage = true
-	rootCmd.SilenceErrors = true
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
-
-	for _, exportType := range export.All() {
-		cmd := newExportCommand(exportType)
-		exportCmd.AddCommand(cmd)
-	}
-
-	rootCmd.AddCommand(exportCmd)
-}
-
-func init() {
 	export.Register(starlingexporter.ExportTypeStarling, func(opts export.Options) (export.Exporter, error) {
 		client := &http.Client{
 			Timeout: opts.Timeout,
@@ -61,6 +47,17 @@ func init() {
 		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
 		return monzoexporter.New(api)
 	})
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+
+	for _, exportType := range export.All() {
+		cmd := newExportCommand(exportType)
+		exportCmd.AddCommand(cmd)
+	}
+
+	rootCmd.AddCommand(exportCmd)
 }
 
 func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Writer) error {
