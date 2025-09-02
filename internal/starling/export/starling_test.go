@@ -8,6 +8,7 @@ import (
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/starling"
+	starlingexport "github.com/HallyG/fingrab/internal/starling/export"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -54,36 +55,35 @@ func (s *StubStarlingClient) FetchSavingsGoals(ctx context.Context, accountID st
 func TestNewStarlingTransactionExport(t *testing.T) {
 	t.Parallel()
 
+	t.Run("error when nil client success", func(t *testing.T) {
+		t.Parallel()
+
+		exporter, err := starlingexport.New(nil)
+
+		require.Nil(t, exporter)
+		require.ErrorContains(t, err, "starling client is required")
+	})
+
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter := export.NewStarlingTransactionExporter(nil)
-
-		require.NotNil(t, exporter)
-		require.Equal(t, time.Duration(0), exporter.MaxDateRange())
-		require.Equal(t, export.ExportTypeStarling, exporter.Type())
-	})
-
-	t.Run("registry", func(t *testing.T) {
-		t.Parallel()
-
-		exporter, err := export.NewExporter(export.ExportTypeStarling, export.Options{})
+		exporter, err := starlingexport.New(&StubStarlingClient{})
 
 		require.NoError(t, err)
 		require.NotNil(t, exporter)
 		require.Equal(t, time.Duration(0), exporter.MaxDateRange())
-		require.Equal(t, export.ExportTypeStarling, exporter.Type())
+		require.Equal(t, starlingexport.ExportTypeStarling, exporter.Type())
 	})
 }
 
 func TestExportStarlingTransactions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("excludes declined transactions", func(t *testing.T) {
-		t.Parallel()
+	accountID := starling.AccountID(uuid.New())
+	categoryID := starling.CategoryID(uuid.New())
 
-		accountID := starling.AccountID(uuid.New())
-		categoryID := starling.CategoryID(uuid.New())
+	setup := func(t *testing.T) export.Exporter {
+		t.Helper()
 
 		accounts := []*starling.Account{
 			{
@@ -131,17 +131,25 @@ func TestExportStarlingTransactions(t *testing.T) {
 			Transactions: transactions,
 		}
 
-		res, err := export.NewStarlingTransactionExporter(client).
-			ExportTransactions(
-				t.Context(),
-				export.Options{
-					StartDate: time.Now().Add(-24 * time.Hour),
-					EndDate:   time.Now(),
-					AccountID: accountID.String(),
-					Timeout:   10 * time.Second,
-					AuthToken: "test-token",
-				},
-			)
+		exporter, err := starlingexport.New(client)
+		require.NoError(t, err)
+
+		return exporter
+	}
+
+	t.Run("excludes declined transactions", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := setup(t).ExportTransactions(
+			t.Context(),
+			export.Options{
+				StartDate: time.Now().Add(-24 * time.Hour),
+				EndDate:   time.Now(),
+				AccountID: accountID.String(),
+				Timeout:   10 * time.Second,
+				AuthToken: "test-token",
+			},
+		)
 		require.NoError(t, err)
 
 		require.Len(t, res, 2)

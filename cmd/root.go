@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/HallyG/fingrab/internal/export"
+	_ "github.com/HallyG/fingrab/internal/monzo/export"
+	_ "github.com/HallyG/fingrab/internal/starling/export"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
