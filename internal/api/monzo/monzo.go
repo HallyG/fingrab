@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -88,11 +89,10 @@ func (c *client) FetchPots(ctx context.Context, accountID AccountID) ([]*Pot, er
 		Pots []*Pot `json:"pots"`
 	}
 
-	queryParams := map[string]string{
-		"current_account_id": string(accountID),
-	}
+	values := url.Values{}
+	values.Add("current_account_id", string(accountID))
 
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, getPotsRoute, queryParams, &result)
+	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, getPotsRoute, values, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch pots: %w", err)
 	}
@@ -149,30 +149,29 @@ func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransacti
 		Transactions []*Transaction `json:"transactions"`
 	}
 
-	queryParams := map[string]string{
-		"account_id": string(opts.AccountID),
-		"expand[]":   "merchant",
-	}
+	values := url.Values{}
+	values.Add("account_id", string(opts.AccountID))
+	values.Add("expand[]", "merchant")
 
 	if opts.Limit == 0 {
 		opts.Limit = maxResultPerPage
 	}
 
 	if opts.Limit != 0 {
-		queryParams["limit"] = strconv.Itoa(opts.Limit)
+		values.Add("limit", strconv.Itoa(opts.Limit))
 	}
 
 	if !opts.End.IsZero() {
-		queryParams["before"] = opts.End.Format(time.RFC3339)
+		values.Add("before", opts.End.Format(time.RFC3339))
 	}
 
 	if opts.SinceID == "" {
-		queryParams["since"] = opts.Start.Format(time.RFC3339)
+		values.Add("since", opts.Start.Format(time.RFC3339))
 	} else {
-		queryParams["since"] = string(opts.SinceID)
+		values.Add("since", string(opts.SinceID))
 	}
 
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, getTransactionsRoute, queryParams, &result)
+	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, getTransactionsRoute, values, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transactions: %w", err)
 	}

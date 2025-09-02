@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/api"
@@ -147,16 +148,15 @@ func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransacti
 		FeedItems []*FeedItem `json:"feedItems"`
 	}
 
-	queryParams := map[string]string{
-		"minTransactionTimestamp": opts.Start.Format(time.RFC3339),
-	}
+	values := url.Values{}
+	values.Add("minTransactionTimestamp", opts.Start.Format(time.RFC3339))
 	if !opts.End.IsZero() {
-		queryParams["maxTransactionTimestamp"] = opts.End.Format(time.RFC3339)
+		values.Add("maxTransactionTimestamp", opts.End.Format(time.RFC3339))
 	}
 
 	url := fmt.Sprintf(getTransactionsRoute, opts.AccountID, opts.CategoryID)
 
-	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, url, queryParams, &result)
+	_, err := c.api.ExecuteRequest(ctx, http.MethodGet, url, values, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transactions: %w", err)
 	}

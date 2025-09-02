@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -18,7 +19,7 @@ const (
 )
 
 type Client interface {
-	ExecuteRequest(ctx context.Context, method, url string, params map[string]string, result any) (*resty.Response, error)
+	ExecuteRequest(ctx context.Context, method, url string, values url.Values, result any) (*resty.Response, error)
 }
 
 type BaseClient struct {
@@ -83,14 +84,12 @@ func WithErrorUnmarshaller(unmarshallerFn func(r *resty.Response) error) Option 
 	}
 }
 
-func (c *BaseClient) ExecuteRequest(ctx context.Context, method, url string, params map[string]string, result any) (*resty.Response, error) {
+func (c *BaseClient) ExecuteRequest(ctx context.Context, method, url string, values url.Values, result any) (*resty.Response, error) {
 	req := c.resty.R().
 		SetContext(ctx).
 		SetResult(result).
-		SetUnescapeQueryParams(false)
-	for key, value := range params {
-		req.SetQueryParam(key, value)
-	}
+		SetUnescapeQueryParams(false).
+		SetQueryParamsFromValues(values)
 
 	resp, err := req.Execute(method, url)
 	if err != nil {
