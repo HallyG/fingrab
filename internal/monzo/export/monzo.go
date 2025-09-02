@@ -11,6 +11,7 @@ import (
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/monzo"
+	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/rs/zerolog"
 )
 
@@ -87,14 +88,8 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		Int("transaction.count", len(transactions)).
 		Msg("successfully exported Monzo transactions")
 
-	return m.ToDomainTransactions(transactions)
-}
-
-func (m *TransactionExporter) ToDomainTransactions(monzoTxns []*monzo.Transaction) ([]*domain.Transaction, error) {
-	domainTxns := make([]*domain.Transaction, 0)
-
-	for _, txn := range monzoTxns {
-		domainTxn := &domain.Transaction{
+	return sliceutil.Map(transactions, func(txn *monzo.Transaction) *domain.Transaction {
+		return &domain.Transaction{
 			Amount:    txn.Amount,
 			Reference: m.determineReference(txn),
 			Category:  txn.CategoryName,
@@ -103,11 +98,7 @@ func (m *TransactionExporter) ToDomainTransactions(monzoTxns []*monzo.Transactio
 			BankName:  Monzo,
 			Notes:     txn.UserNotes,
 		}
-
-		domainTxns = append(domainTxns, domainTxn)
-	}
-
-	return domainTxns, nil
+	}), nil
 }
 
 // Enrich Transaction Descriptions with Pot Name.

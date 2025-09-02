@@ -17,6 +17,15 @@ func Filter[T any](list []T, filter func(T) bool) []T {
 	return filtered
 }
 
+func Map[T any, R any](items []T, mapper func(T) R) []R {
+	results := make([]R, 0, len(items))
+	for _, item := range items {
+		results = append(results, mapper(item))
+	}
+
+	return results
+}
+
 func ToDelimitedString[T any](list []T) string {
 	strTypes := make([]string, len(list))
 

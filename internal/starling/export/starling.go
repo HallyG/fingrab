@@ -96,13 +96,7 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		Int("transaction.count", len(transactions)).
 		Msg("successfully exported Starling transactions")
 
-	return s.ToDomainTransactions(transactions)
-}
-
-func (s *TransactionExporter) ToDomainTransactions(starlingTxns []*starling.FeedItem) ([]*domain.Transaction, error) {
-	domainTxns := make([]*domain.Transaction, 0)
-
-	for _, txn := range starlingTxns {
+	return sliceutil.Map(transactions, func(txn *starling.FeedItem) *domain.Transaction {
 		reference := s.determineReference(txn)
 
 		depositSignum := int64(-1)
@@ -112,7 +106,7 @@ func (s *TransactionExporter) ToDomainTransactions(starlingTxns []*starling.Feed
 			depositSignum = 1
 		}
 
-		domainTxn := &domain.Transaction{
+		return &domain.Transaction{
 			Amount: domain.Money{
 				MinorUnit: txn.Amount.MinorUnit * depositSignum,
 				Currency:  txn.Amount.Currency,
@@ -124,11 +118,7 @@ func (s *TransactionExporter) ToDomainTransactions(starlingTxns []*starling.Feed
 			BankName:  Starling,
 			Notes:     txn.UserNote,
 		}
-
-		domainTxns = append(domainTxns, domainTxn)
-	}
-
-	return domainTxns, nil
+	}), nil
 }
 
 func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starling.AccountID) (*starling.Account, error) {
