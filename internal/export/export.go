@@ -62,6 +62,9 @@ func Register(exportType ExportType, constructor ExporterConstructor) {
 }
 
 func NewExporter(exportType ExportType, opts Options) (Exporter, error) {
+	registryLock.RLock()
+	defer registryLock.RUnlock()
+
 	constructor, exists := registry[exportType]
 	if !exists {
 		return nil, fmt.Errorf("unsupported export type: %s", exportType)
