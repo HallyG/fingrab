@@ -1,4 +1,4 @@
-package export_test
+package exporter_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/HallyG/fingrab/internal/export"
 
 	"github.com/HallyG/fingrab/internal/monzo"
-	monzoexport "github.com/HallyG/fingrab/internal/monzo/export"
+	monzoexporter "github.com/HallyG/fingrab/internal/monzo/exporter"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) {
 	t.Run("error when nil client success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := monzoexport.New(nil)
+		exporter, err := monzoexporter.New(nil)
 
 		require.Nil(t, exporter)
 		require.ErrorContains(t, err, "monzo client is required")
@@ -76,19 +76,19 @@ func TestNew(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := monzoexport.New(&StubMonzoClient{})
+		exporter, err := monzoexporter.New(&StubMonzoClient{})
 
 		require.NoError(t, err)
 		require.NotNil(t, exporter)
 		require.Equal(t, 90*24*time.Hour, exporter.MaxDateRange())
-		require.Equal(t, monzoexport.ExportTypeMonzo, exporter.Type())
+		require.Equal(t, monzoexporter.ExportTypeMonzo, exporter.Type())
 	})
 }
 
 func TestExportMonzoTransactions(t *testing.T) {
 	t.Parallel()
 
-	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, *monzoexport.TransactionExporter) {
+	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, *monzoexporter.TransactionExporter) {
 		t.Helper()
 
 		accountID := "acc_12345"
@@ -105,7 +105,7 @@ func TestExportMonzoTransactions(t *testing.T) {
 			Transactions: [][]*monzo.Transaction{txns},
 		}
 
-		exporter, err := monzoexport.New(client)
+		exporter, err := monzoexporter.New(client)
 		require.NoError(t, err)
 
 		return accounts[0], exporter

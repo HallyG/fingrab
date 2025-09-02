@@ -1,4 +1,4 @@
-package export_test
+package exporter_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/starling"
-	starlingexport "github.com/HallyG/fingrab/internal/starling/export"
+	starlingexporter "github.com/HallyG/fingrab/internal/starling/exporter"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func TestNewStarlingTransactionExport(t *testing.T) {
 	t.Run("error when nil client success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := starlingexport.New(nil)
+		exporter, err := starlingexporter.New(nil)
 
 		require.Nil(t, exporter)
 		require.ErrorContains(t, err, "starling client is required")
@@ -67,12 +67,12 @@ func TestNewStarlingTransactionExport(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := starlingexport.New(&StubStarlingClient{})
+		exporter, err := starlingexporter.New(&StubStarlingClient{})
 
 		require.NoError(t, err)
 		require.NotNil(t, exporter)
 		require.Equal(t, time.Duration(0), exporter.MaxDateRange())
-		require.Equal(t, starlingexport.ExportTypeStarling, exporter.Type())
+		require.Equal(t, starlingexporter.ExportTypeStarling, exporter.Type())
 	})
 }
 
@@ -131,7 +131,7 @@ func TestExportStarlingTransactions(t *testing.T) {
 			Transactions: transactions,
 		}
 
-		exporter, err := starlingexport.New(client)
+		exporter, err := starlingexporter.New(client)
 		require.NoError(t, err)
 
 		return exporter

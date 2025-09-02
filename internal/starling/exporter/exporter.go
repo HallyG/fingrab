@@ -1,10 +1,9 @@
-package export
+package exporter
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -22,17 +21,6 @@ const (
 	starlingTimeFormat   = "2006-01-02"
 	starlingMaxDateRange = 0
 )
-
-func init() {
-	export.Register(ExportTypeStarling, func(opts export.Options) (export.Exporter, error) {
-		client := &http.Client{
-			Timeout: opts.Timeout,
-		}
-
-		api := starling.New(client, starling.WithAuthToken(opts.BearerAuthToken()))
-		return New(api)
-	})
-}
 
 var _ export.Exporter = (*TransactionExporter)(nil)
 

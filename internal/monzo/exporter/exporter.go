@@ -1,10 +1,9 @@
-package export
+package exporter
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -22,17 +21,6 @@ const (
 	monzoTimeFormat       = "2006-01-02"
 	monzoMaxDateRange     = 90 * 24 * time.Hour // 90 days
 )
-
-func init() {
-	export.Register(ExportTypeMonzo, func(opts export.Options) (export.Exporter, error) {
-		client := &http.Client{
-			Timeout: opts.Timeout,
-		}
-
-		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
-		return New(api)
-	})
-}
 
 var _ export.Exporter = (*TransactionExporter)(nil)
 
