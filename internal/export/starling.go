@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/starling"
 	"github.com/HallyG/fingrab/internal/domain"
+	"github.com/HallyG/fingrab/internal/starling"
 	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"

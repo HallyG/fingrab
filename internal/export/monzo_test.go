@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HallyG/fingrab/internal/api/monzo"
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/monzo"
 	"github.com/stretchr/testify/require"
 )
 
