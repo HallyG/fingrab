@@ -36,6 +36,20 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *BaseClient {
 		SetRetryCount(defaultRetryCount).
 		SetRetryWaitTime(defaultRetryWaitTime).
 		SetRetryMaxWaitTime(defaultMaxRetryWaitTime).
+		AddResponseMiddleware(func(c *resty.Client, r *resty.Response) error {
+			startTime := r.Request.Time
+			endTime := r.ReceivedAt()
+
+			req := r.Request
+			zerolog.Ctx(req.Context()).Debug().
+				Str("http.url", req.URL).
+				Str("http.method", req.Method).
+				Err(r.Err).
+				Dur("http.duration_ms", endTime.Sub(startTime)).
+				Int("http.status_code", r.StatusCode()).
+				Msg("performed HTTP request")
+			return nil
+		}).
 		AddRetryConditions(func(r *resty.Response, err error) bool {
 			return err != nil || r.StatusCode() >= 500
 		})
@@ -74,27 +88,11 @@ func (c *BaseClient) ExecuteRequest(ctx context.Context, method, url string, par
 		SetContext(ctx).
 		SetResult(result).
 		SetUnescapeQueryParams(false)
-
 	for key, value := range params {
 		req.SetQueryParam(key, value)
 	}
 
-	startTime := time.Now()
 	resp, err := req.Execute(method, url)
-	endTime := time.Since(startTime)
-
-	event := zerolog.Ctx(ctx).Debug().
-		Str("http.url", req.URL).
-		Str("http.method", req.Method).
-		Err(err).
-		Dur("http.duration_ms", time.Duration(endTime.Milliseconds()))
-
-	if resp != nil {
-		event.Int("http.status_code", resp.StatusCode())
-	}
-
-	event.Msg("performed HTTP request")
-
 	if err != nil {
 		return resp, fmt.Errorf("%s %s failed: %w", method, resp.Request.URL, err)
 	}
