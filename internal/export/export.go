@@ -96,7 +96,9 @@ func Transactions(ctx context.Context, exportType ExportType, opts Options, form
 
 	maxDateRange := exporter.MaxDateRange()
 	if maxDateRange > 0 && opts.EndDate.Sub(opts.StartDate) > maxDateRange {
-		return fmt.Errorf("date range is too long, max is %d days", int(maxDateRange/time.Hour*24))
+		hours := maxDateRange.Hours()
+		days := hours / 24
+		return fmt.Errorf("date range is too long, max is %d days", int(days))
 	}
 
 	ctx = zerolog.Ctx(ctx).With().
