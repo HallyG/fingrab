@@ -3,11 +3,12 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/HallyG/fingrab/internal/log"
 	resty "resty.dev/v3"
 )
 
@@ -32,14 +33,15 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *resty.Client 
 			endTime := r.ReceivedAt()
 
 			req := r.Request
+			ctx := r.Request.Context()
 
-			zerolog.Ctx(req.Context()).Debug().
-				Str("http.url", req.URL).
-				Str("http.method", req.Method).
-				Err(r.Err).
-				Dur("http.duration_ms", endTime.Sub(startTime)).
-				Int("http.status_code", r.StatusCode()).
-				Msg("performed HTTP request")
+			log.FromContext(ctx).DebugContext(ctx, "performed HTTP request", slog.Group("http",
+				slog.Any("err", r.Err),
+				slog.Duration("duration_ms", endTime.Sub(startTime)),
+				slog.Int("status_code", r.StatusCode()),
+				slog.String("url", req.URL),
+				slog.String("method", req.Method),
+			))
 			return nil
 		}).
 		AddRetryConditions(func(r *resty.Response, err error) bool {

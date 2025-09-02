@@ -3,6 +3,7 @@ package export
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -10,8 +11,8 @@ import (
 
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/format"
+	"github.com/HallyG/fingrab/internal/log"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/rs/zerolog"
 )
 
 type ExportType string
@@ -104,10 +105,8 @@ func Transactions(ctx context.Context, exportType ExportType, opts Options, form
 		return fmt.Errorf("date range is too long, max is %d days", int(days))
 	}
 
-	ctx = zerolog.Ctx(ctx).With().
-		Str("exporter.type", string(exportType)).
-		Logger().
-		WithContext(ctx)
+	logger := log.FromContext(ctx).With(slog.String("exporter.type", string(exportType)))
+	ctx = log.WithContext(ctx, logger)
 
 	transactions, err := exporter.ExportTransactions(ctx, opts)
 	if err != nil {
