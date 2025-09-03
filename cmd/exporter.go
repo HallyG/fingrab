@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 const (
 	timeFormat = "2006-01-02"
 	timeout    = 5 * time.Second
-	day        = 24 * time.Hour
 )
 
 var (
@@ -69,21 +67,6 @@ func parseDate(str string) (time.Time, error) {
 	return time.Parse(timeFormat, str)
 }
 
-func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, error) {
-	if opts.AuthToken != "" {
-		return opts.AuthToken, nil
-	}
-	// Get token from environment variable if not provided via flag
-	envVar := strings.ToUpper(string(exportType)) + "_TOKEN"
-	authToken := os.Getenv(envVar)
-
-	if authToken == "" {
-		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
-	}
-
-	return opts.AuthToken, nil
-}
-
 func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
 	logger := log.FromContext(ctx).With(
 		slog.String("bank", string(exportType)),
@@ -114,7 +97,7 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return errors.New("start date cannot be in the future")
 	}
 
-	authToken, err := getAuthToken(opts, exportType)
+	authToken, err := getAuthToken(ctx, opts, exportType)
 	if err != nil {
 		return err
 	}
