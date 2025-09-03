@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 			expectedJSON: true,
 		},
 		"text format": {
-			opts:         []log.Option{log.WithTextHandler(false)},
+			opts:         []log.Option{log.WithTextHandler()},
 			expectedJSON: false,
 		},
 		"populates source attribute": {
