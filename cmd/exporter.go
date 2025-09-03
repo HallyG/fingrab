@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -77,20 +77,6 @@ func parseDate(str string) (time.Time, error) {
 	return time.Parse(timeFormat, str)
 }
 
-func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, error) {
-	if opts.AuthToken != "" {
-		return opts.AuthToken, nil
-	}
-	// Get token from environment variable if not provided via flag
-	envVar := strings.ToUpper(string(exportType)) + "_TOKEN"
-	authToken := os.Getenv(envVar)
-	if authToken == "" {
-		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
-	}
-
-	return authToken, nil
-}
-
 func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
 	logger := log.FromContext(ctx).With(
 		slog.String("bank", string(exportType)),
@@ -102,7 +88,7 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return fmt.Errorf("start date: %w", err)
 	}
 
-	now := time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	now := time.Now().Truncate(24 * time.Hour)
 	endDate := now.Add(24 * time.Hour)
 
 	if opts.EndDateStr != "" {
@@ -113,6 +99,10 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 	}
 
 	// TODO: handle the case where we generate the start date at mightnight, but now is less than that
+	if endDate.Before(startDate) {
+		return errors.New("end date must be after start date")
+	}
+
 	if startDate.After(now) {
 		return fmt.Errorf("start date %q cannot be in the future", startDate.Format(timeFormat))
 	}
@@ -120,7 +110,11 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return fmt.Errorf("end date %q must be after start date %q", endDate.Format(timeFormat), startDate.Format(timeFormat))
 	}
 
-	authToken, err := getAuthToken(opts, exportType)
+	if endDate.After(now.Add(24 * time.Hour)) {
+		return errors.New("end date cannot be more than 1 day in the future")
+	}
+
+	authToken, err := getAuthToken(ctx, opts, exportType)
 	if err != nil {
 		return err
 	}
