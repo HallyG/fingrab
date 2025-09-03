@@ -56,7 +56,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
-	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", sliceutil.ToDelimitedString(format.All())))
+	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s)", sliceutil.ToDelimitedString(format.All())))
 
 	_ = cmd.MarkFlagRequired("start")
 
@@ -78,7 +78,7 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return fmt.Errorf("invalid start date: %w", err)
 	}
 
-	now := time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	now := time.Now().Truncate(24 * time.Hour)
 	endDate := now.Add(24 * time.Hour)
 
 	if opts.EndDateStr != "" {
@@ -92,9 +92,12 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return errors.New("end date must be after start date")
 	}
 
-	// TODO: handle the case where we generate the start date at mightnight, but now is less than that
 	if startDate.After(now) {
 		return errors.New("start date cannot be in the future")
+	}
+
+	if endDate.After(now.Add(24 * time.Hour)) {
+		return errors.New("end date cannot be more than 1 day in the future")
 	}
 
 	authToken, err := getAuthToken(ctx, opts, exportType)
