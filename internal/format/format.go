@@ -12,8 +12,12 @@ import (
 type FormatType string
 
 type Formatter interface {
+	// WriteHeader writes any format-specific header information.
+	// This is called once before any transactions are written.
 	WriteHeader() error
 	WriteTransaction(t *domain.Transaction) error
+	// Flush finalizes the output and ensures all buffered data is written.
+	// This is called once after all transactions have been written.
 	Flush() error
 }
 
@@ -44,4 +48,25 @@ func All() []FormatType {
 	slices.Sort(formats)
 
 	return formats
+}
+
+// WriteCollection writes a complete collection of transactions using the specified formatter.
+// This is a convenience function that handles the full three-phase writing process:
+// writing the header, writing all transactions, and flushing the output.
+func WriteCollection(formatter Formatter, transactions []*domain.Transaction) error {
+	if err := formatter.WriteHeader(); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+
+	for _, t := range transactions {
+		if err := formatter.WriteTransaction(t); err != nil {
+			return fmt.Errorf("failed to write transaction: %w", err)
+		}
+	}
+
+	if err := formatter.Flush(); err != nil {
+		return fmt.Errorf("failed to flush formatter: %w", err)
+	}
+
+	return nil
 }

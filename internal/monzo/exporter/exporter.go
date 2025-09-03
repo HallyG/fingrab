@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/monzo"
 	"github.com/HallyG/fingrab/internal/util/sliceutil"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -50,11 +51,10 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		return nil, fmt.Errorf("invalid opts: %w", err)
 	}
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Monzo).
-		Str("export.start", opts.StartDate.Format(monzoTimeFormat)).
-		Str("export.end", opts.EndDate.Format(monzoTimeFormat)).
-		Msg("starting export of Monzo transactions")
+	log.FromContext(ctx).InfoContext(ctx, "starting export of transactions",
+		slog.String("export.start", opts.StartDate.Format(monzoTimeFormat)),
+		slog.String("export.end", opts.EndDate.Format(monzoTimeFormat)),
+	)
 
 	account, err := m.fetchAccount(ctx, opts.AccountID)
 	if err != nil {
@@ -71,10 +71,9 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		return nil, err
 	}
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Monzo).
-		Int("transaction.count", len(transactions)).
-		Msg("successfully exported Monzo transactions")
+	log.FromContext(ctx).InfoContext(ctx, "successfully exported transactions",
+		slog.Int("transaction.count", len(transactions)),
+	)
 
 	return sliceutil.Map(transactions, func(txn *monzo.Transaction) *domain.Transaction {
 		return &domain.Transaction{
@@ -91,23 +90,19 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 
 // Enrich Transaction Descriptions with Pot Name.
 func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
-	zerolog.Ctx(ctx).Debug().
-		Ctx(ctx).
-		Str("bank", Monzo).
-		Str("account.id", string(accountID)).
-		Msg("enriching transaction descriptions")
+	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
+		slog.String("account.id", string(accountID)),
+	)
 
 	pots, err := m.api.FetchPots(ctx, accountID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch pots while enriching transactions: %w", err)
 	}
 
-	zerolog.Ctx(ctx).Debug().
-		Ctx(ctx).
-		Str("bank", Monzo).
-		Str("account.id", string(accountID)).
-		Int("pots.total", len(pots)).
-		Msg("fetched pots")
+	log.FromContext(ctx).DebugContext(ctx, "fetched pots",
+		slog.String("account.id", string(accountID)),
+		slog.Int("pots.total", len(pots)),
+	)
 
 	potMap := make(map[string]string)
 	for _, pot := range pots {
@@ -133,32 +128,23 @@ func (m *TransactionExporter) fetchAccount(ctx context.Context, accountID string
 		return nil, errors.New("no accounts found, exiting")
 	}
 
-	accountsArr := zerolog.Arr()
 	selectedAccount := accounts[0]
-
 	accountIDs := make([]monzo.AccountID, 0)
-
 	for _, account := range accounts {
 		if accountID == string(account.ID) {
 			selectedAccount = account
 		}
 
 		accountIDs = append(accountIDs, account.ID)
-		accountsArr.Str(string(account.ID))
 	}
 
-	zerolog.Ctx(ctx).Debug().
-		Ctx(ctx).
-		Str("bank", Monzo).
-		Int("account.total", len(accountIDs)).
-		Array("account.all", accountsArr).
-		Msg("found Monzo accounts")
+	log.FromContext(ctx).InfoContext(ctx, "found accounts",
+		slog.Int("account.total", len(accountIDs)),
+	)
 
-	zerolog.Ctx(ctx).Info().
-		Ctx(ctx).
-		Str("bank", Monzo).
-		Str("account.id", string(selectedAccount.ID)).
-		Msg("selected Monzo account")
+	log.FromContext(ctx).InfoContext(ctx, "selected account",
+		slog.String("account.id", string(selectedAccount.ID)),
+	)
 
 	return selectedAccount, nil
 }
@@ -170,14 +156,12 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 	endDateExclusive := endDate.AddDate(0, 0, 1)
 	limit := monzoTransactionBatch
 
-	zerolog.Ctx(ctx).Debug().
-		Ctx(ctx).
-		Str("bank", Monzo).
-		Str("account.id", string(accountID)).
-		Time("start", startDate).
-		Time("end", endDate).
-		Int("limit", limit).
-		Msg("fetching Monzo transactions")
+	log.FromContext(ctx).InfoContext(ctx, "fetching transactions",
+		slog.String("account.id", string(accountID)),
+		slog.String("start", startDate.Format(monzoTimeFormat)),
+		slog.String("end", endDate.Format(monzoTimeFormat)),
+		slog.Int("limit", limit),
+	)
 
 	for {
 		select {
@@ -228,11 +212,10 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 		}
 	}
 
-	zerolog.Ctx(ctx).Debug().
-		Str("bank", Monzo).
-		Str("account.id", string(accountID)).
-		Int("transaction.total", len(transactions)).
-		Msg("fetched Monzo transactions")
+	log.FromContext(ctx).InfoContext(ctx, "fetched transactions",
+		slog.String("account.id", string(accountID)),
+		slog.Int("transaction.total", len(transactions)),
+	)
 
 	return transactions, nil
 }

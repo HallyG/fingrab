@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/starling"
 	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -61,11 +62,10 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		accountID = starling.AccountID(uuid)
 	}
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Starling).
-		Str("export.start", opts.StartDate.Format(starlingTimeFormat)).
-		Str("export.end", opts.EndDate.Format(starlingTimeFormat)).
-		Msg("starting export of Starling transactions")
+	log.FromContext(ctx).InfoContext(ctx, "starting export of transactions",
+		slog.String("export.start", opts.StartDate.Format(starlingTimeFormat)),
+		slog.String("export.end", opts.EndDate.Format(starlingTimeFormat)),
+	)
 
 	account, err := s.fetchAccount(ctx, accountID)
 	if err != nil {
@@ -79,10 +79,9 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		return nil, err
 	}
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Starling).
-		Int("transaction.count", len(transactions)).
-		Msg("successfully exported Starling transactions")
+	log.FromContext(ctx).InfoContext(ctx, "successfully exported transactions",
+		slog.Int("transaction.count", len(transactions)),
+	)
 
 	return sliceutil.Map(transactions, func(txn *starling.FeedItem) *domain.Transaction {
 		reference := s.determineReference(txn)
@@ -120,42 +119,34 @@ func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starli
 	}
 
 	selectedAccount := accounts[0]
-	accountsArr := zerolog.Arr()
-
 	accountIDs := make([]starling.AccountID, 0)
-
 	for _, account := range accounts {
 		if accountID == account.ID {
 			selectedAccount = account
 		}
 
 		accountIDs = append(accountIDs, account.ID)
-		accountsArr.Str(account.ID.String())
 	}
 
-	zerolog.Ctx(ctx).Debug().
-		Str("bank", Starling).
-		Int("account.total", len(accountIDs)).
-		Array("account.all", accountsArr).
-		Msg("found Starling accounts")
+	log.FromContext(ctx).InfoContext(ctx, "found accounts",
+		slog.Int("account.total", len(accountIDs)),
+	)
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Starling).
-		Str("account.id", selectedAccount.ID.String()).
-		Str("category.id", selectedAccount.DefaultCategoryID.String()).
-		Msg("selected Starling account")
+	log.FromContext(ctx).InfoContext(ctx, "selected account",
+		slog.String("account.id", selectedAccount.ID.String()),
+		slog.String("account.category.id", selectedAccount.DefaultCategoryID.String()),
+	)
 
 	return selectedAccount, nil
 }
 
 func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accountID starling.AccountID, categoryID starling.CategoryID, start time.Time, end time.Time) ([]*starling.FeedItem, error) {
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Starling).
-		Str("account.id", accountID.String()).
-		Str("category.id", categoryID.String()).
-		Time("start", start).
-		Time("end", end).
-		Msg("fetching Starling transactions")
+	log.FromContext(ctx).InfoContext(ctx, "fetching transactions",
+		slog.String("account.id", accountID.String()),
+		slog.String("account.category.id", categoryID.String()),
+		slog.String("start", start.Format(starlingTimeFormat)),
+		slog.String("end", end.Format(starlingTimeFormat)),
+	)
 
 	transactions, err := s.api.FetchTransactionsSince(ctx, starling.FetchTransactionOptions{
 		AccountID:  accountID,
@@ -181,12 +172,11 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 		return txn.Status != starling.StatusDeclined
 	})
 
-	zerolog.Ctx(ctx).Info().
-		Str("bank", Starling).
-		Str("account.id", accountID.String()).
-		Str("category.id", categoryID.String()).
-		Int("transaction.total", len(filteredTransactions)).
-		Msg("fetched Starling transactions")
+	log.FromContext(ctx).InfoContext(ctx, "fetched transactions",
+		slog.String("account.id", accountID.String()),
+		slog.String("account.category.id", categoryID.String()),
+		slog.Int("transaction.total", len(filteredTransactions)),
+	)
 
 	return filteredTransactions, nil
 }
@@ -217,6 +207,10 @@ func (s *TransactionExporter) determineReference(txn *starling.FeedItem) string 
 func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, accountID starling.AccountID, start time.Time, end time.Time, transactionsWithRoundUp []*starling.FeedItem) ([]*starling.FeedItem, error) {
 	seenCategoryIDs := make(map[starling.CategoryID]struct{})
 	roundUpTransactions := make([]*starling.FeedItem, 0)
+
+	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
+		slog.String("account.id", accountID.String()),
+	)
 
 	for _, txn := range transactionsWithRoundUp {
 		if txn.RoundUp == nil {

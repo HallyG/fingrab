@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/format"
+	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/spf13/cobra"
 )
@@ -52,7 +54,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&opts.StartDateStr, "start", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.EndDateStr, "end", time.Now().Format(timeFormat), "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.EndDateStr, "end", "", "End date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
@@ -63,13 +65,39 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	return cmd
 }
 
-func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exporterType export.ExportType) error {
+func parseDate(str string) (time.Time, error) {
+	return time.Parse(timeFormat, str)
+}
+
+func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, error) {
+	if opts.AuthToken != "" {
+		return opts.AuthToken, nil
+	}
+	// Get token from environment variable if not provided via flag
+	envVar := strings.ToUpper(string(exportType)) + "_TOKEN"
+	authToken := os.Getenv(envVar)
+
+	if authToken == "" {
+		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
+	}
+
+	return opts.AuthToken, nil
+}
+
+func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
+	logger := log.FromContext(ctx).With(
+		slog.String("bank", string(exportType)),
+	)
+	ctx = log.WithContext(ctx, logger)
+
 	startDate, err := parseDate(opts.StartDateStr)
 	if err != nil {
 		return fmt.Errorf("invalid start date: %w", err)
 	}
 
-	endDate := time.Now()
+	now := time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	endDate := now.Add(24 * time.Hour)
+
 	if opts.EndDateStr != "" {
 		endDate, err = parseDate(opts.EndDateStr)
 		if err != nil {
@@ -81,37 +109,37 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return errors.New("end date must be after start date")
 	}
 
-	if startDate.After(time.Now()) {
+	// TODO: handle the case where we generate the start date at mightnight, but now is less than that
+	if startDate.After(now) {
 		return errors.New("start date cannot be in the future")
 	}
 
-	// Get token from environment variable if not provided via flag
-	if opts.AuthToken == "" {
-		envVar := strings.ToUpper(string(exporterType)) + "_TOKEN"
-		opts.AuthToken = os.Getenv(envVar)
-
-		if opts.AuthToken == "" {
-			return fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
-		}
+	authToken, err := getAuthToken(opts, exportType)
+	if err != nil {
+		return err
 	}
 
 	exportOpts := export.Options{
 		StartDate: startDate,
 		EndDate:   endDate,
 		AccountID: opts.AccountID,
-		AuthToken: opts.AuthToken,
+		AuthToken: authToken,
 		Timeout:   opts.Timeout,
-		Format:    format.FormatType(opts.Format),
 	}
 
-	formatter, err := format.NewFormatter(exportOpts.Format, output)
+	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)
 	if err != nil {
 		return fmt.Errorf("failed to create formatter: %w", err)
 	}
 
-	return export.Transactions(ctx, exporterType, exportOpts, formatter)
-}
+	transactions, err := export.Transactions(ctx, exportType, exportOpts)
+	if err != nil {
+		return err
+	}
 
-func parseDate(str string) (time.Time, error) {
-	return time.Parse(timeFormat, str)
+	if err := format.WriteCollection(formatter, transactions); err != nil {
+		return err
+	}
+
+	return nil
 }

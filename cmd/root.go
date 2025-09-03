@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/HallyG/fingrab/internal/export"
+	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/monzo"
 	monzoexporter "github.com/HallyG/fingrab/internal/monzo/exporter"
 	"github.com/HallyG/fingrab/internal/starling"
 	starlingexporter "github.com/HallyG/fingrab/internal/starling/exporter"
-	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -28,20 +28,6 @@ var (
 		Version:           fmt.Sprintf("%s (%s)", BuildVersion, BuildShortSHA),
 	}
 )
-
-func init() {
-	rootCmd.SilenceUsage = true
-	rootCmd.SilenceErrors = true
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
-
-	for _, exportType := range export.All() {
-		cmd := newExportCommand(exportType)
-		exportCmd.AddCommand(cmd)
-	}
-
-	rootCmd.AddCommand(exportCmd)
-}
 
 func init() {
 	export.Register(starlingexporter.ExportTypeStarling, func(opts export.Options) (export.Exporter, error) {
@@ -61,6 +47,18 @@ func init() {
 		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
 		return monzoexporter.New(api)
 	})
+
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+
+	for _, exportType := range export.All() {
+		cmd := newExportCommand(exportType)
+		exportCmd.AddCommand(cmd)
+	}
+
+	rootCmd.AddCommand(exportCmd)
 }
 
 func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Writer) error {
@@ -68,33 +66,31 @@ func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Wri
 	rootCmd.SetErr(errOutput)
 	rootCmd.SetArgs(args[1:])
 
-	return rootCmd.ExecuteContext(ctx)
+	verbose, _ := rootCmd.Flags().GetBool("verbose")
+	logger := log.New(
+		log.WithWriter(errOutput),
+		log.WithVerbose(verbose),
+		log.WithAttrs(
+			slog.String("build.version", BuildVersion),
+			slog.String("build.sha", BuildShortSHA),
+		),
+	)
+	return rootCmd.ExecuteContext(log.WithContext(ctx, logger))
 }
 
 func setupLogger(cmd *cobra.Command, _ []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	logger := log.New(
+		log.WithWriter(cmd.ErrOrStderr()),
+		log.WithVerbose(verbose),
+		log.WithTextHandler(true),
+		log.WithAttrs(
+			slog.String("build.version", BuildVersion),
+			slog.String("build.sha", BuildShortSHA),
+		),
+	)
 
-	writer := zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
-		w.Out = cmd.ErrOrStderr()
-		w.TimeFormat = time.RFC3339
-		w.PartsExclude = []string{"time", "level"}
-	})
-
-	logger := zerolog.New(writer).
-		With().
-		Timestamp().
-		Str("build.version", BuildShortSHA).
-		Str("build.sha", BuildShortSHA).
-		Logger()
-
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
-	if verbose {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	}
-
-	ctx := logger.WithContext(cmd.Context())
+	ctx := log.WithContext(cmd.Context(), logger)
 	cmd.SetContext(ctx)
-
 	return nil
 }

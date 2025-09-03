@@ -22,7 +22,8 @@ func TestYNABFormatter(t *testing.T) {
 		formatter, err := format.NewFormatter(format.FormatTypeYNAB, buffer)
 		require.NoError(t, err)
 
-		writeTestTransactions(t, now, formatter)
+		err = format.WriteCollection(formatter, testTransactions(t, now))
+		require.NoError(t, err)
 
 		expected := `Date,Payee,Memo,Amount
 04/16/2025,Test Transaction,Test Notes,123.45

@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
-	"github.com/HallyG/fingrab/internal/format"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/rs/zerolog"
 )
 
 type ExportType string
@@ -29,7 +27,6 @@ type Options struct {
 	StartDate time.Time
 	AuthToken string
 	Timeout   time.Duration
-	Format    format.FormatType
 }
 
 func (o Options) Validate(ctx context.Context) error {
@@ -87,46 +84,27 @@ func All() []ExportType {
 	return exportTypes
 }
 
-func Transactions(ctx context.Context, exportType ExportType, opts Options, formatter format.Formatter) error {
+func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
 	exporter, err := NewExporter(exportType, opts)
 	if err != nil {
-		return fmt.Errorf("failed to create %s exporter: %w", exportType, err)
+		return nil, fmt.Errorf("failed to create %s exporter: %w", exportType, err)
 	}
 
 	maxDateRange := exporter.MaxDateRange()
 	if maxDateRange > 0 && opts.EndDate.Sub(opts.StartDate) > maxDateRange {
 		hours := maxDateRange.Hours()
 		days := hours / 24
-		return fmt.Errorf("date range is too long, max is %d days", int(days))
+		return nil, fmt.Errorf("date range is too long, max is %d days", int(days))
 	}
-
-	ctx = zerolog.Ctx(ctx).With().
-		Str("exporter.type", string(exportType)).
-		Logger().
-		WithContext(ctx)
 
 	transactions, err := exporter.ExportTransactions(ctx, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := formatter.WriteHeader(); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
-	}
-
-	for _, t := range transactions {
-		if err := formatter.WriteTransaction(t); err != nil {
-			return fmt.Errorf("failed to write transaction: %w", err)
-		}
-	}
-
-	if err := formatter.Flush(); err != nil {
-		return fmt.Errorf("failed to flush formatter: %w", err)
-	}
-
-	return nil
+	return transactions, nil
 }
