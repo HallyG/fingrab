@@ -117,7 +117,7 @@ func TestExchange(t *testing.T) {
 		cancel()
 
 		config := setup(t)
-		result, err := oauth.Exchange(ctx, config)
+		result, err := oauth.Exchange(ctx, config, strings.NewReader(""))
 
 		require.Error(t, err)
 		require.Empty(t, result)
