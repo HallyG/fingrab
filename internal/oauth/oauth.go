@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 
 	"github.com/HallyG/fingrab/internal/log"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -46,7 +45,7 @@ func (c *Config) ToOAuth2Config() oauth2.Config {
 	}
 }
 
-func Exchange(ctx context.Context, cfg *Config) (string, error) {
+func Exchange(ctx context.Context, cfg *Config, userInput io.Reader) (string, error) {
 	if err := cfg.Validate(ctx); err != nil {
 		return "", fmt.Errorf("invalid oauth2 config: %w", err)
 	}
@@ -68,7 +67,7 @@ func Exchange(ctx context.Context, cfg *Config) (string, error) {
 
 	log.FromContext(ctx).InfoContext(ctx, "exchanged oauth token")
 	if cfg.WaitForApprovalInApp {
-		if err := WaitForApprovalInApp(ctx, os.Stdin); err != nil {
+		if err := WaitForApprovalInApp(ctx, userInput); err != nil {
 			return "", fmt.Errorf("failed waiting for app approval: %w", err)
 		}
 	}
@@ -103,8 +102,9 @@ func exchangeToken(ctx context.Context, ready chan string, cfg *oauth2cli.Config
 func LoginWithBrowser(ctx context.Context, ready <-chan string, browserOpenUrlFn func(string) error) error {
 	select {
 	case loginURL := <-ready:
-		_, _ = fmt.Println("You will be redirected to your web browser to complete the login process")
-		_, _ = fmt.Println("If the page did not open automatically, open this URL manually:", loginURL)
+		log.FromContext(ctx).InfoContext(ctx, "You will be redirected to your web browser to complete the login process")
+		log.FromContext(ctx).InfoContext(ctx, fmt.Sprintf("If the page did not open automatically, open this URL manually: %s", loginURL))
+
 		if err := browserOpenUrlFn(loginURL); err != nil {
 			log.FromContext(ctx).WarnContext(ctx, "could not open browser", slog.Any("err", err))
 		}
