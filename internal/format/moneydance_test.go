@@ -22,7 +22,8 @@ func TestMoneyDanceFormatter(t *testing.T) {
 		formatter, err := format.NewFormatter(format.FormatTypeMoneyDance, buffer)
 		require.NoError(t, err)
 
-		writeTestTransactions(t, now, formatter)
+		err = format.WriteCollection(formatter, testTransactions(t, now))
+		require.NoError(t, err)
 
 		expected := `check number,date,description,category,amount,memo
 Dep,2025-04-16,Test Transaction,Test Category,123.45,Test Notes
