@@ -66,12 +66,12 @@ func startOAuth(ctx context.Context, exportType export.ExportType) (string, erro
 	clientIDEnvVar := getEnvVarName(exportType, envClientIDSuffix)
 	clientSecretEnvVar := getEnvVarName(exportType, envClientSecretSuffix)
 
-	if clientID := os.Getenv(clientIDEnvVar); clientID != "" {
+	if clientID := strings.TrimSpace(os.Getenv(clientIDEnvVar)); clientID != "" {
 		logger.DebugContext(ctx, "using client ID from environment variable", slog.String("env.var", clientIDEnvVar))
 		config.ClientID = clientID
 	}
 
-	if clientSecret := os.Getenv(clientSecretEnvVar); clientSecret != "" {
+	if clientSecret := strings.TrimSpace(os.Getenv(clientSecretEnvVar)); clientSecret != "" {
 		logger.DebugContext(ctx, "using client secret from environment variable", slog.String("env.var", clientSecretEnvVar))
 		config.ClientSecret = clientSecret
 	}

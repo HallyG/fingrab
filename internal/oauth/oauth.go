@@ -65,7 +65,7 @@ func Exchange(ctx context.Context, cfg *Config, userInput io.Reader) (string, er
 		return "", err
 	}
 
-	log.FromContext(ctx).InfoContext(ctx, "exchanged oauth token")
+	log.FromContext(ctx).DebugContext(ctx, "exchanged oauth token")
 	if cfg.WaitForApprovalInApp {
 		if err := WaitForApprovalInApp(ctx, userInput); err != nil {
 			return "", fmt.Errorf("failed waiting for app approval: %w", err)
@@ -102,8 +102,8 @@ func exchangeToken(ctx context.Context, ready chan string, cfg *oauth2cli.Config
 func LoginWithBrowser(ctx context.Context, ready <-chan string, browserOpenUrlFn func(string) error) error {
 	select {
 	case loginURL := <-ready:
-		log.FromContext(ctx).InfoContext(ctx, "You will be redirected to your web browser to complete the login process")
-		log.FromContext(ctx).InfoContext(ctx, fmt.Sprintf("If the page did not open automatically, open this URL manually: %s", loginURL))
+		log.FromContext(ctx).InfoContext(ctx, "you will be redirected to your web browser to complete the login process")
+		log.FromContext(ctx).InfoContext(ctx, fmt.Sprintf("if the page did not open automatically, open this URL manually: %s", loginURL))
 
 		if err := browserOpenUrlFn(loginURL); err != nil {
 			log.FromContext(ctx).WarnContext(ctx, "could not open browser", slog.Any("err", err))
@@ -118,7 +118,7 @@ func LoginWithBrowser(ctx context.Context, ready <-chan string, browserOpenUrlFn
 func WaitForApprovalInApp(ctx context.Context, input io.Reader) error {
 	logger := log.FromContext(ctx)
 	logger.InfoContext(ctx, "please open your app and approve this application to access your account")
-	logger.InfoContext(ctx, "press Enter once you have approved the app in your app...")
+	logger.InfoContext(ctx, "press Enter once you have approved the application...")
 
 	done := make(chan error, 1)
 	go func() {
