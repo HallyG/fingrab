@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 const (
 	timeFormat = "2006-01-02"
 	timeout    = 5 * time.Second
-	day        = 24 * time.Hour
 )
 
 var (
@@ -47,18 +45,29 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   strings.ToLower(name),
 		Short: "Export transactions from " + name,
-		Long:  `Export banking transactions for the specified date range from supported providers.`,
+		Long:  fmt.Sprintf("Export banking transactions from %s for the specified date range.", name),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
 		},
+		Example: fmt.Sprintf(`# Using token flag
+fingrab export %s --token <api-token> --start 2025-03-01 --end 2025-03-31
+  
+# Using environment variable
+export %s_TOKEN=<api-token>
+fingrab export %s --start 2025-03-01 --end 2025-03-31
+  
+# Using OAuth2
+export %s_CLIENT_ID=<client-id>
+export %s_CLIENT_SECRET=<client-secret>
+fingrab export %s --start 2025-03-01 --end 2025-03-31`, strings.ToLower(name), strings.ToUpper(name), strings.ToLower(name), strings.ToUpper(name), strings.ToUpper(name), strings.ToLower(name)),
 	}
 
 	cmd.Flags().StringVar(&opts.StartDateStr, "start", "", "Start date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.EndDateStr, "end", "", "End date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
+	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (alternative: set %s_TOKEN environment variable, or for OAuth2 set %s_CLIENT_ID and %s_CLIENT_SECRET environment variables)", strings.ToUpper(name), strings.ToUpper(name), strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
-	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", sliceutil.ToDelimitedString(format.All())))
+	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s)", sliceutil.ToDelimitedString(format.All())))
 
 	_ = cmd.MarkFlagRequired("start")
 
@@ -67,21 +76,6 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 
 func parseDate(str string) (time.Time, error) {
 	return time.Parse(timeFormat, str)
-}
-
-func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, error) {
-	if opts.AuthToken != "" {
-		return opts.AuthToken, nil
-	}
-	// Get token from environment variable if not provided via flag
-	envVar := strings.ToUpper(string(exportType)) + "_TOKEN"
-	authToken := os.Getenv(envVar)
-
-	if authToken == "" {
-		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
-	}
-
-	return opts.AuthToken, nil
 }
 
 func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
@@ -95,7 +89,7 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return fmt.Errorf("invalid start date: %w", err)
 	}
 
-	now := time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	now := time.Now().Truncate(24 * time.Hour)
 	endDate := now.Add(24 * time.Hour)
 
 	if opts.EndDateStr != "" {
@@ -109,12 +103,15 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 		return errors.New("end date must be after start date")
 	}
 
-	// TODO: handle the case where we generate the start date at mightnight, but now is less than that
 	if startDate.After(now) {
 		return errors.New("start date cannot be in the future")
 	}
 
-	authToken, err := getAuthToken(opts, exportType)
+	if endDate.After(now.Add(24 * time.Hour)) {
+		return errors.New("end date cannot be more than 1 day in the future")
+	}
+
+	authToken, err := getAuthToken(ctx, opts, exportType)
 	if err != nil {
 		return err
 	}
