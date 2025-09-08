@@ -12,16 +12,17 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
-type ExportType string
-type ExporterConstructor func(opts Options) (Exporter, error)
-
-type Exporter interface {
-	Type() ExportType
-	// MaxDateRange returns the maximum allowed date range for fetching transactions.
-	// A zero duration indicates no limit.
-	MaxDateRange() time.Duration
-	ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error)
-}
+type (
+	ExportType          string
+	ExporterConstructor func(opts Options) (Exporter, error)
+	Exporter            interface {
+		Type() ExportType
+		// MaxDateRange returns the maximum allowed date range for fetching transactions.
+		// A zero duration indicates no limit.
+		MaxDateRange() time.Duration
+		ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error)
+	}
+)
 
 type Options struct {
 	AccountID string
@@ -39,6 +40,12 @@ func (o Options) Validate(ctx context.Context) error {
 	)
 }
 
+// BearerAuthToken formats the AuthToken as a Bearer token by adding the "Bearer " prefix if not already present.
+// It trims whitespace from the token for consistency.
+// Example:
+//
+//	opts := Options{AuthToken: "abc123"}
+//	token := opts.BearerAuthToken() // Returns "Bearer abc123"
 func (o Options) BearerAuthToken() string {
 	token := strings.TrimSpace(o.AuthToken)
 	if !strings.HasPrefix(token, "Bearer ") {
@@ -53,6 +60,8 @@ var (
 	registryLock = sync.RWMutex{}
 )
 
+// Register adds a new exporter constructor to the registry for the given export type.
+// It is thread-safe and overwrites any existing constructor for the same ExportType.
 func Register(exportType ExportType, constructor ExporterConstructor) {
 	registryLock.Lock()
 	defer registryLock.Unlock()
@@ -69,9 +78,15 @@ func NewExporter(exportType ExportType, opts Options) (Exporter, error) {
 		return nil, fmt.Errorf("unsupported type: %s", exportType)
 	}
 
-	return constructor(opts)
+	exporter, err := constructor(opts)
+	if err != nil {
+		return nil, fmt.Errorf("constructor: %w", err)
+	}
+
+	return exporter, nil
 }
 
+// All returns a sorted slice (by name) of all registered export types.
 func All() []ExportType {
 	registryLock.RLock()
 	defer registryLock.RUnlock()
@@ -86,6 +101,17 @@ func All() []ExportType {
 	return exportTypes
 }
 
+// Transactions fetches transactions for the specified export type and options.
+// It validates the options, checks the specificed date range against the exporter's maximum, and retrieves the transactions.
+//
+// Example:
+//
+//	ctx := context.Background()
+//	opts := Options{AccountID: "123", StartDate: time.Now().AddDate(0, 0, -7), EndDate: time.Now(), AuthToken: "token"}
+//	transactions, err := Transactions(ctx, "csv", opts)
+//	if err != nil {
+//	    // Handle error
+//	}
 func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
@@ -93,7 +119,7 @@ func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*
 
 	exporter, err := NewExporter(exportType, opts)
 	if err != nil {
-		return nil, fmt.Errorf("create exporter: %w", err)
+		return nil, fmt.Errorf("exporter: %w", err)
 	}
 
 	maxDateRange := exporter.MaxDateRange()
@@ -106,7 +132,7 @@ func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*
 
 	transactions, err := exporter.ExportTransactions(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("transctions: %w", err)
 	}
 
 	return transactions, nil

@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	ExportTypeMonzo       = export.ExportType("Monzo")
 	Monzo                 = "Monzo"
-	monzoTransactionBatch = 100
+	ExportTypeMonzo       = export.ExportType(Monzo)
+	monzoTransactionBatch = uint16(100)
 	monzoTimeFormat       = "2006-01-02"
-	monzoMaxDateRange     = 90 * 24 * time.Hour // 90 days
+	monzoMaxDateRange     = 90 * 24 * time.Hour
 )
 
 var _ export.Exporter = (*TransactionExporter)(nil)
@@ -48,7 +48,7 @@ func (m *TransactionExporter) MaxDateRange() time.Duration {
 
 func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid opts: %w", err)
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
 	log.FromContext(ctx).InfoContext(ctx, "starting export of transactions",
@@ -66,6 +66,7 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		return nil, err
 	}
 
+	// todo: move into fetch
 	err = m.enrichTransactionDescriptions(ctx, account.ID, transactions)
 	if err != nil {
 		return nil, err
@@ -88,40 +89,10 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}), nil
 }
 
-// Enrich Transaction Descriptions with Pot Name.
-func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
-	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
-		slog.String("account.id", string(accountID)),
-	)
-
-	pots, err := m.api.FetchPots(ctx, accountID)
-	if err != nil {
-		return fmt.Errorf("failed to fetch pots while enriching transactions: %w", err)
-	}
-
-	log.FromContext(ctx).DebugContext(ctx, "fetched pots",
-		slog.String("account.id", string(accountID)),
-		slog.Int("pots.total", len(pots)),
-	)
-
-	potMap := make(map[string]string)
-	for _, pot := range pots {
-		potMap[string(pot.ID)] = pot.Name
-	}
-
-	for _, transaction := range transactions {
-		if potName, exists := potMap[transaction.Description]; exists {
-			transaction.Description = potName + " Pot"
-		}
-	}
-
-	return nil
-}
-
 func (m *TransactionExporter) fetchAccount(ctx context.Context, accountID string) (*monzo.Account, error) {
 	accounts, err := m.api.FetchAccounts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch accounts: %w", err)
 	}
 
 	if len(accounts) == 0 {
@@ -160,13 +131,13 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 		slog.String("account.id", string(accountID)),
 		slog.String("start", startDate.Format(monzoTimeFormat)),
 		slog.String("end", endDate.Format(monzoTimeFormat)),
-		slog.Int("limit", limit),
+		slog.Int("limit", int(limit)),
 	)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("failed to fetch transactions: %w", ctx.Err())
+			return nil, fmt.Errorf("fetch transactions: %w", ctx.Err())
 		default:
 		}
 
@@ -178,7 +149,7 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 			Limit:     limit,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("fetch transactions: %w", err)
 		}
 
 		if len(transactionDtos) == 0 {
@@ -218,6 +189,36 @@ func (m *TransactionExporter) fetchTransactions(ctx context.Context, accountID m
 	)
 
 	return transactions, nil
+}
+
+// Enrich Transaction Descriptions with Pot Name.
+func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context, accountID monzo.AccountID, transactions []*monzo.Transaction) error {
+	log.FromContext(ctx).DebugContext(ctx, "enriching transaction descriptions",
+		slog.String("account.id", string(accountID)),
+	)
+
+	pots, err := m.api.FetchPots(ctx, accountID)
+	if err != nil {
+		return fmt.Errorf("fetch pots: %w", err)
+	}
+
+	log.FromContext(ctx).DebugContext(ctx, "fetched pots",
+		slog.String("account.id", string(accountID)),
+		slog.Int("pots.total", len(pots)),
+	)
+
+	potMap := make(map[string]string)
+	for _, pot := range pots {
+		potMap[string(pot.ID)] = pot.Name
+	}
+
+	for _, transaction := range transactions {
+		if potName, exists := potMap[transaction.Description]; exists {
+			transaction.Description = potName + " Pot"
+		}
+	}
+
+	return nil
 }
 
 func (m *TransactionExporter) determineReference(txn *monzo.Transaction) string {

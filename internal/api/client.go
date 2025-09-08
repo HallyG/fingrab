@@ -100,7 +100,7 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *resty.Client 
 //	type User struct { ID string; Name string }
 //	user, err := ExecuteRequest[User](ctx, client, "GET", "/users/123", nil)
 //	if err != nil {
-//	    log.Fatal(err)
+//	    // Handle error
 //	}
 //	fmt.Printf("User: %+v\n", user)
 func ExecuteRequest[T any](ctx context.Context, client *resty.Client, method, url string, values url.Values) (*T, error) {

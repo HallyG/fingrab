@@ -13,54 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type StubMonzoClient struct {
-	Accounts         []*monzo.Account
-	Pots             []*monzo.Pot
-	Transactions     [][]*monzo.Transaction
-	FetchAccountsErr error
-	FetchPotErr      error
-	FetchTxnsErr     error
-	callCount        int
-}
-
-var _ monzo.Client = (*StubMonzoClient)(nil)
-
-func (s *StubMonzoClient) FetchTransactionsSince(ctx context.Context, opts monzo.FetchTransactionOptions) ([]*monzo.Transaction, error) {
-	if s.FetchTxnsErr != nil {
-		return nil, s.FetchTxnsErr
-	}
-
-	s.callCount++
-	index := s.callCount - 1
-
-	// If we've exceeded the number of predefined responses, return empty
-	if index >= len(s.Transactions) {
-		return nil, nil
-	}
-
-	return s.Transactions[index], nil
-}
-
-func (s *StubMonzoClient) FetchTransaction(ctx context.Context, transactionID monzo.TransactionID) (*monzo.Transaction, error) {
-	return &monzo.Transaction{}, nil
-}
-
-func (s *StubMonzoClient) FetchAccounts(ctx context.Context) ([]*monzo.Account, error) {
-	if s.FetchAccountsErr != nil {
-		return nil, s.FetchAccountsErr
-	}
-
-	return s.Accounts, nil
-}
-
-func (s *StubMonzoClient) FetchPots(ctx context.Context, accountID monzo.AccountID) ([]*monzo.Pot, error) {
-	if s.FetchPotErr != nil {
-		return nil, s.FetchPotErr
-	}
-
-	return s.Pots, nil
-}
-
 func TestNew(t *testing.T) {
 	t.Parallel()
 
@@ -88,6 +40,8 @@ func TestNew(t *testing.T) {
 func TestExportMonzoTransactions(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now()
+
 	setup := func(t *testing.T, txns []*monzo.Transaction) (*monzo.Account, *monzoexporter.TransactionExporter) {
 		t.Helper()
 
@@ -111,7 +65,6 @@ func TestExportMonzoTransactions(t *testing.T) {
 		return accounts[0], exporter
 	}
 
-	now := time.Now()
 	tests := map[string]struct {
 		transactions         []*monzo.Transaction
 		expectedTransactions []*domain.Transaction
@@ -199,6 +152,7 @@ func TestExportMonzoTransactions(t *testing.T) {
 			},
 		},
 	}
+
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -219,4 +173,52 @@ func TestExportMonzoTransactions(t *testing.T) {
 			require.ElementsMatch(t, res, test.expectedTransactions)
 		})
 	}
+}
+
+var _ monzo.Client = (*StubMonzoClient)(nil)
+
+type StubMonzoClient struct {
+	Accounts         []*monzo.Account
+	Pots             []*monzo.Pot
+	Transactions     [][]*monzo.Transaction
+	FetchAccountsErr error
+	FetchPotErr      error
+	FetchTxnsErr     error
+	callCount        int
+}
+
+func (s *StubMonzoClient) FetchTransactionsSince(ctx context.Context, opts monzo.FetchTransactionOptions) ([]*monzo.Transaction, error) {
+	if s.FetchTxnsErr != nil {
+		return nil, s.FetchTxnsErr
+	}
+
+	s.callCount++
+	index := s.callCount - 1
+
+	// If we've exceeded the number of predefined responses, return empty
+	if index >= len(s.Transactions) {
+		return nil, nil
+	}
+
+	return s.Transactions[index], nil
+}
+
+func (s *StubMonzoClient) FetchTransaction(ctx context.Context, transactionID monzo.TransactionID) (*monzo.Transaction, error) {
+	return &monzo.Transaction{}, nil
+}
+
+func (s *StubMonzoClient) FetchAccounts(ctx context.Context) ([]*monzo.Account, error) {
+	if s.FetchAccountsErr != nil {
+		return nil, s.FetchAccountsErr
+	}
+
+	return s.Accounts, nil
+}
+
+func (s *StubMonzoClient) FetchPots(ctx context.Context, accountID monzo.AccountID) ([]*monzo.Pot, error) {
+	if s.FetchPotErr != nil {
+		return nil, s.FetchPotErr
+	}
+
+	return s.Pots, nil
 }

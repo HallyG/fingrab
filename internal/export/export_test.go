@@ -79,7 +79,7 @@ func TestTransactions(t *testing.T) {
 				StartDate: time.Now(),
 				AuthToken: "12345",
 			},
-			expectedErrMsg: "create exporter: invalid auth token",
+			expectedErrMsg: "exporter: constructor: invalid auth token",
 		},
 		"returns error when date range too long": {
 			opts: export.Options{

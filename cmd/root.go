@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/HallyG/fingrab/internal/api"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/monzo"
@@ -35,7 +36,7 @@ func init() {
 			Timeout: opts.Timeout,
 		}
 
-		api := starling.New(client, starling.WithAuthToken(opts.BearerAuthToken()))
+		api := starling.New(client, api.WithAuthToken(opts.BearerAuthToken()))
 		return starlingexporter.New(api)
 	})
 
@@ -44,7 +45,7 @@ func init() {
 			Timeout: opts.Timeout,
 		}
 
-		api := monzo.New(client, monzo.WithAuthToken(opts.BearerAuthToken()))
+		api := monzo.New(client, api.WithAuthToken(opts.BearerAuthToken()))
 		return monzoexporter.New(api)
 	})
 

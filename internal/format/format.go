@@ -1,44 +1,66 @@
+// Package format provides transaction formatting capabilities for different output formats.
+// It supports pluggable formatters through a registry pattern, allowing transactions
+// to be exported to various formats like CSV, YNAB, and MoneyDance.
 package format
 
 import (
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
 )
 
-type FormatType string
+type (
+	FormatType           string
+	FormatterConstructor func(io.Writer, *time.Location) (Formatter, error)
+	Formatter            interface {
+		// WriteHeader writes any format-specific header.
+		WriteHeader() error
+		WriteTransaction(t *domain.Transaction) error
+		// Flush finalizes the output and ensures all buffered data is written.
+		Flush() error
+	}
+)
 
-type Formatter interface {
-	// WriteHeader writes any format-specific header information.
-	// This is called once before any transactions are written.
-	WriteHeader() error
-	WriteTransaction(t *domain.Transaction) error
-	// Flush finalizes the output and ensures all buffered data is written.
-	// This is called once after all transactions have been written.
-	Flush() error
+var (
+	registry     = make(map[FormatType]FormatterConstructor)
+	registryLock = sync.RWMutex{}
+)
+
+// Register adds a new formatter constructor to the registry for the given format type.
+// It is thread-safe and overwrites any existing constructor for the same FormatType.
+func register(formatType FormatType, constructor FormatterConstructor) {
+	registryLock.Lock()
+	defer registryLock.Unlock()
+
+	registry[formatType] = constructor
 }
 
-type constructor func(io.Writer, *time.Location) Formatter
+// NewFormatter creates a new formatter for the specified format type.
+// Returns an error if the format type is not supported or if formatter creation fails.
+func NewFormatter(formatType FormatType, w io.Writer) (Formatter, error) {
+	registryLock.RLock()
+	defer registryLock.RUnlock()
 
-var registry = make(map[FormatType]constructor)
-
-func register(format FormatType, constructor constructor) {
-	registry[format] = constructor
-}
-
-func NewFormatter(format FormatType, w io.Writer) (Formatter, error) {
-	constructor, exists := registry[format]
+	constructor, exists := registry[formatType]
 	if !exists {
-		return nil, fmt.Errorf("unsupported type: %s", format)
+		return nil, fmt.Errorf("unsupported type: %s", formatType)
 	}
 
 	location := time.UTC
-	return constructor(w, location), nil
+
+	formatter, err := constructor(w, location)
+	if err != nil {
+		return nil, fmt.Errorf("constructor: %w", err)
+	}
+
+	return formatter, nil
 }
 
+// All returns a sorted slice (by name) of all registered format types.
 func All() []FormatType {
 	formats := make([]FormatType, 0, len(registry))
 	for format := range registry {
@@ -50,7 +72,7 @@ func All() []FormatType {
 	return formats
 }
 
-// WriteCollection writes a complete collection of transactions using the specified formatter.
+// WriteCollection writes a slice of transactions using the specified formatter.
 // This is a convenience function that handles the full three-phase writing process:
 // writing the header, writing all transactions, and flushing the output.
 func WriteCollection(formatter Formatter, transactions []*domain.Transaction) error {

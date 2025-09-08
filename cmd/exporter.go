@@ -50,7 +50,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
 			if err != nil {
-				return fmt.Errorf("export transactions: %w", err)
+				return fmt.Errorf("%s: %w", strings.ToLower(name), err)
 			}
 
 			return nil
@@ -131,12 +131,12 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 
 	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)
 	if err != nil {
-		return fmt.Errorf("create formatter: %w", err)
+		return fmt.Errorf("formatter: %w", err)
 	}
 
-	transactions, err := export.Transactions(ctx, export.ExportType("hello world"), exportOpts)
+	transactions, err := export.Transactions(ctx, exportType, exportOpts)
 	if err != nil {
-		return fmt.Errorf("%v transactions: %w", strings.ToLower(string(exportType)), err)
+		return fmt.Errorf("export: %w", err)
 	}
 
 	if err := format.WriteCollection(formatter, transactions); err != nil {
