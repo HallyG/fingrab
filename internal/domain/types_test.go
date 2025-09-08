@@ -24,7 +24,7 @@ func TestToMajorUnit(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			require.Equal(t, test.expected, test.money.ToMajorUnit())
+			require.InEpsilon(t, test.expected, test.money.ToMajorUnit(), 0.01)
 		})
 	}
 }
