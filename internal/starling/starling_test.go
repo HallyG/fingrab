@@ -50,6 +50,7 @@ func TestFetchAccounts(t *testing.T) {
 		route               testutil.HTTPTestRoute
 		expectedAccounts    []*starling.Account
 		expectedStarlingErr *starling.Error
+		expectedErrMsg      string
 		assertFn            func(t *testing.T, items []*starling.Account)
 	}{
 		"successful fetch": {
@@ -94,8 +95,9 @@ func TestFetchAccounts(t *testing.T) {
 			},
 			expectedStarlingErr: &starling.Error{
 				Code:    "invalid_token",
-				Message: "No access token provided in request. `Header: Authorization` must be set ",
+				Message: "No access token provided in request. `Header: Authorization` must be set",
 			},
+			expectedErrMsg: "No access token provided in request. `Header: Authorization` must be set",
 		},
 		"returns API error array": {
 			route: testutil.HTTPTestRoute{
@@ -112,6 +114,7 @@ func TestFetchAccounts(t *testing.T) {
 					{"MIN_TRANSACTION_TIMESTAMP_must not be null"},
 				},
 			},
+			expectedErrMsg: "[MAX_TRANSACTION_TIMESTAMP_must not be null, MIN_TRANSACTION_TIMESTAMP_must not be null]",
 		},
 	}
 	for name, test := range tests {
@@ -123,7 +126,7 @@ func TestFetchAccounts(t *testing.T) {
 
 			if test.expectedStarlingErr != nil {
 				require.Empty(t, items)
-				requireStarlingErrorEqual(t, *test.expectedStarlingErr, err)
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, test.expectedErrMsg, err)
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedAccounts)
@@ -144,6 +147,7 @@ func TestFetchSavingsGoals(t *testing.T) {
 		route               testutil.HTTPTestRoute
 		expectedGoals       []*starling.SavingsGoal
 		expectedStarlingErr *starling.Error
+		expectedErrMsg      string
 		assertFn            func(t *testing.T, items []*starling.SavingsGoal)
 	}{
 		"successful fetch": {
@@ -179,10 +183,11 @@ func TestFetchSavingsGoals(t *testing.T) {
 
 			if test.expectedStarlingErr != nil {
 				require.Empty(t, items)
-				requireStarlingErrorEqual(t, *test.expectedStarlingErr, errors.Unwrap(err))
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, "", errors.Unwrap(err))
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedGoals)
+				require.Equal(t, "77887788-7788-7788-7788-778877887788", test.expectedGoals[0].ID.String())
 				if test.assertFn != nil {
 					test.assertFn(t, items)
 				}
@@ -202,6 +207,7 @@ func TestFetchFeedItem(t *testing.T) {
 		route               testutil.HTTPTestRoute
 		expectedItem        *starling.FeedItem
 		expectedStarlingErr *starling.Error
+		expectedErrMsg      string
 		assertFn            func(y *testing.T, item *starling.FeedItem)
 	}{
 		"successful fetch": {
@@ -255,7 +261,7 @@ func TestFetchFeedItem(t *testing.T) {
 			item, err := client.FetchFeedItem(t.Context(), accountId, categoryId, feedItemId)
 			if test.expectedStarlingErr != nil {
 				require.Nil(t, item)
-				requireStarlingErrorEqual(t, *test.expectedStarlingErr, errors.Unwrap(err))
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, test.expectedErrMsg, errors.Unwrap(err))
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, test.expectedItem, item)
@@ -399,6 +405,7 @@ func TestFetchTransactionsSince(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedItems)
+				require.Equal(t, "68e16af4-c2c3-413b-bf93-1056b90097fa", test.expectedItems[0].CounterPartyID.String())
 				if test.assertFn != nil {
 					test.assertFn(t, items)
 				}
@@ -407,7 +414,7 @@ func TestFetchTransactionsSince(t *testing.T) {
 	}
 }
 
-func requireStarlingErrorEqual(t *testing.T, expectedErr starling.Error, err error) {
+func requireStarlingErrorEqual(t *testing.T, expectedErr starling.Error, expectedErrMsg string, err error) {
 	t.Helper()
 
 	require.Error(t, err)
@@ -419,4 +426,5 @@ func requireStarlingErrorEqual(t *testing.T, expectedErr starling.Error, err err
 	require.Equal(t, expectedErr.Code, starlingErr.Code)
 	require.Equal(t, expectedErr.Message, starlingErr.Message)
 	require.Equal(t, expectedErr.ErrorMessages, starlingErr.ErrorMessages)
+	require.Equal(t, expectedErrMsg, starlingErr.Error())
 }
