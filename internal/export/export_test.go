@@ -11,6 +11,60 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAll(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns expected exporters", func(t *testing.T) {
+		t.Parallel()
+
+		exporters := export.All()
+		require.NotNil(t, exporters)
+	})
+}
+
+func TestBearerToken(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input  export.Options
+		output string
+	}{
+		"whitespace removed and bearer is added": {
+			input: export.Options{
+				AuthToken: " eyJ ",
+			},
+			output: "Bearer eyJ",
+		},
+		"whitespace removed and bearer is not added": {
+			input: export.Options{
+				AuthToken: " Bearer eyJ ",
+			},
+			output: "Bearer eyJ",
+		},
+		"bearer is added": {
+			input: export.Options{
+				AuthToken: "eyJ",
+			},
+			output: "Bearer eyJ",
+		},
+		"bearer is not added": {
+			input: export.Options{
+				AuthToken: "Bearer eyJ",
+			},
+			output: "Bearer eyJ",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			output := test.input.BearerAuthToken()
+
+			require.Equal(t, test.output, output)
+		})
+	}
+}
+
 func TestNewExporter(t *testing.T) {
 	t.Parallel()
 
