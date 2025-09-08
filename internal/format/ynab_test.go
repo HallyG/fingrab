@@ -12,15 +12,22 @@ import (
 func TestYNABFormatter(t *testing.T) {
 	t.Parallel()
 
+	setup := func(t *testing.T) (format.Formatter, *bytes.Buffer) {
+		t.Helper()
+		buffer := bytes.NewBuffer(nil)
+		formatter, err := format.NewFormatter(format.FormatTypeYNAB, buffer)
+		require.NoError(t, err)
+
+		return formatter, buffer
+	}
+
 	t.Run("writes CSV data", func(t *testing.T) {
 		t.Parallel()
 
 		now, err := time.Parse("2006-01-02", "2025-04-16")
 		require.NoError(t, err)
 
-		buffer := bytes.NewBuffer(nil)
-		formatter, err := format.NewFormatter(format.FormatTypeYNAB, buffer)
-		require.NoError(t, err)
+		formatter, buffer := setup(t)
 
 		err = format.WriteCollection(formatter, testTransactions(t, now))
 		require.NoError(t, err)

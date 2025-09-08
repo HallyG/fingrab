@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HallyG/fingrab/internal/api"
 	"github.com/HallyG/fingrab/internal/monzo"
 	"github.com/HallyG/fingrab/internal/util/testutil"
 	"github.com/stretchr/testify/require"
@@ -25,8 +26,8 @@ func setup(t *testing.T, routes ...testutil.HTTPTestRoute) monzo.Client {
 
 	server := testutil.NewHTTPTestServer(t, routes)
 	client := monzo.New(&http.Client{},
-		monzo.WithBaseURL(server.URL),
-		monzo.WithAuthToken(token),
+		api.WithBaseURL(server.URL),
+		api.WithAuthToken(token),
 	)
 
 	return client
@@ -49,7 +50,7 @@ func TestFetchAccounts(t *testing.T) {
 	tests := map[string]struct {
 		route            testutil.HTTPTestRoute
 		expectedAccounts []*monzo.Account
-		expectedErr      *monzo.Error
+		expectedMonzoErr *monzo.Error
 		assertFn         func(t *testing.T, items []*monzo.Account)
 	}{
 		"successful fetch": {
@@ -84,7 +85,7 @@ func TestFetchAccounts(t *testing.T) {
 					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
 				},
 			},
-			expectedErr: &monzo.Error{
+			expectedMonzoErr: &monzo.Error{
 				Code:    "not_found",
 				Message: "/a not found",
 			},
@@ -97,9 +98,9 @@ func TestFetchAccounts(t *testing.T) {
 			client := setup(t, test.route)
 			accounts, err := client.FetchAccounts(t.Context())
 
-			if test.expectedErr != nil {
+			if test.expectedMonzoErr != nil {
 				require.Empty(t, accounts)
-				requireErrorEqual(t, *test.expectedErr, err)
+				requireMonzoErrorEqual(t, *test.expectedMonzoErr, err)
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, accounts, test.expectedAccounts)
@@ -112,10 +113,10 @@ func TestFetchTransaction(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route        testutil.HTTPTestRoute
-		expectedItem *monzo.Transaction
-		expectedErr  *monzo.Error
-		assertFn     func(t *testing.T, item *monzo.Transaction)
+		route          testutil.HTTPTestRoute
+		expectedItem   *monzo.Transaction
+		expectedErrMsg *monzo.Error
+		assertFn       func(t *testing.T, item *monzo.Transaction)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -147,9 +148,9 @@ func TestFetchTransaction(t *testing.T) {
 			client := setup(t, test.route)
 			item, err := client.FetchTransaction(t.Context(), transactionId)
 
-			if test.expectedErr != nil {
+			if test.expectedErrMsg != nil {
 				require.Nil(t, item)
-				require.ErrorContains(t, err, test.expectedErr.Error())
+				require.ErrorContains(t, err, test.expectedErrMsg.Error())
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, test.expectedItem, item)
@@ -165,10 +166,10 @@ func TestFetchPots(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route        testutil.HTTPTestRoute
-		expectedPots []*monzo.Pot
-		expectedErr  *monzo.Error
-		assertFn     func(t *testing.T, items []*monzo.Pot)
+		route          testutil.HTTPTestRoute
+		expectedPots   []*monzo.Pot
+		expectedErrMsg *monzo.Error
+		assertFn       func(t *testing.T, items []*monzo.Pot)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -202,9 +203,9 @@ func TestFetchPots(t *testing.T) {
 			client := setup(t, test.route)
 			items, err := client.FetchPots(t.Context(), accountId)
 
-			if test.expectedErr != nil {
+			if test.expectedErrMsg != nil {
 				require.Empty(t, items)
-				require.ErrorContains(t, err, test.expectedErr.Error())
+				require.ErrorContains(t, err, test.expectedErrMsg.Error())
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedPots)
@@ -220,12 +221,12 @@ func TestFetchTransactions(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		name          string
-		route         testutil.HTTPTestRoute
-		opts          monzo.FetchTransactionOptions
-		expectedItems []*monzo.Transaction
-		expectedErr   error
-		assertFn      func(t *testing.T, items []*monzo.Transaction)
+		name           string
+		route          testutil.HTTPTestRoute
+		opts           monzo.FetchTransactionOptions
+		expectedItems  []*monzo.Transaction
+		expectedErrMsg error
+		assertFn       func(t *testing.T, items []*monzo.Transaction)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -256,7 +257,7 @@ func TestFetchTransactions(t *testing.T) {
 				require.Equal(t, transactionId, items[0].ID)
 			},
 		},
-		"returns error when invalid options": {
+		"returns error when start time before end time": {
 			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/transactions",
@@ -273,7 +274,26 @@ func TestFetchTransactions(t *testing.T) {
 				Start:     time.Now(),
 				AccountID: "acc_12345",
 			},
-			expectedErr: errors.New("start time must be before end time"),
+			expectedErrMsg: errors.New("invalid options: Start: must be before End"),
+		},
+		"returns error when account ID is not provided": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    "/transactions",
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					header := http.Header{}
+					query := url.Values{}
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
+				},
+			},
+			opts: monzo.FetchTransactionOptions{
+				End:       time.Now().Add(24 * time.Hour),
+				Start:     time.Now(),
+				AccountID: "",
+			},
+			expectedErrMsg: errors.New("invalid options: AccountID: is required."),
 		},
 	}
 	for name, test := range tests {
@@ -283,9 +303,9 @@ func TestFetchTransactions(t *testing.T) {
 			client := setup(t, test.route)
 
 			items, err := client.FetchTransactionsSince(t.Context(), test.opts)
-			if test.expectedErr != nil {
+			if test.expectedErrMsg != nil {
 				require.Empty(t, items)
-				require.ErrorContains(t, err, test.expectedErr.Error())
+				require.ErrorContains(t, err, test.expectedErrMsg.Error())
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedItems)
@@ -297,7 +317,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 }
 
-func requireErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
+func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
 	t.Helper()
 
 	require.Error(t, err)

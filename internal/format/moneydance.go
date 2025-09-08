@@ -8,26 +8,25 @@ import (
 )
 
 const (
-	moneyDanceTimeFormat            = "2006-01-02"
+	moneyDanceTimeFormat            = "2006-01-02" // date format expected by MoneyDance (YYYY-MM-DD)
 	FormatTypeMoneyDance FormatType = "moneydance"
 )
 
 func init() {
-	register(FormatTypeMoneyDance, func(w io.Writer, location *time.Location) Formatter {
-		return newMoneyDanceFormatter(w, location)
+	register(FormatTypeMoneyDance, func(w io.Writer, location *time.Location) (Formatter, error) {
+		return &MoneyDanceFormatter{
+			CSVFormatter: NewCSVFormatter(w),
+			location:     location,
+		}, nil
 	})
 }
 
+// MoneyDanceFormatter formats transactions for import into MoneyDance.
+// It outputs CSV with columns: check number, date, description, category, amount, memo.
+// Transactions are marked as "Trn" and deposits as "Dep" in the check number field.
 type MoneyDanceFormatter struct {
 	*CSVFormatter
 	location *time.Location
-}
-
-func newMoneyDanceFormatter(w io.Writer, location *time.Location) *MoneyDanceFormatter {
-	return &MoneyDanceFormatter{
-		CSVFormatter: NewCSVFormatter(w),
-		location:     location,
-	}
 }
 
 func (m *MoneyDanceFormatter) WriteHeader() error {

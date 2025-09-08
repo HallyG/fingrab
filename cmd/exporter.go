@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -47,9 +46,14 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   strings.ToLower(name),
 		Short: "Export transactions from " + name,
-		Long:  `Export banking transactions for the specified date range from supported providers.`,
+		Long:  fmt.Sprintf("Export banking transactions from %s for the specified date range.", name),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
+			err := runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
+			if err != nil {
+				return fmt.Errorf("%s: %w", strings.ToLower(name), err)
+			}
+
+			return nil
 		},
 	}
 
@@ -76,7 +80,6 @@ func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, er
 	// Get token from environment variable if not provided via flag
 	envVar := strings.ToUpper(string(exportType)) + "_TOKEN"
 	authToken := os.Getenv(envVar)
-
 	if authToken == "" {
 		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
 	}
@@ -92,7 +95,7 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 
 	startDate, err := parseDate(opts.StartDateStr)
 	if err != nil {
-		return fmt.Errorf("invalid start date: %w", err)
+		return fmt.Errorf("start date: %w", err)
 	}
 
 	now := time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
@@ -101,17 +104,16 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 	if opts.EndDateStr != "" {
 		endDate, err = parseDate(opts.EndDateStr)
 		if err != nil {
-			return fmt.Errorf("invalid end date: %w", err)
+			return fmt.Errorf("end date: %w", err)
 		}
-	}
-
-	if endDate.Before(startDate) {
-		return errors.New("end date must be after start date")
 	}
 
 	// TODO: handle the case where we generate the start date at mightnight, but now is less than that
 	if startDate.After(now) {
-		return errors.New("start date cannot be in the future")
+		return fmt.Errorf("start date %q cannot be in the future", startDate.Format(timeFormat))
+	}
+	if endDate.Before(startDate) {
+		return fmt.Errorf("end date %q must be after start date %q", endDate.Format(timeFormat), startDate.Format(timeFormat))
 	}
 
 	authToken, err := getAuthToken(opts, exportType)
@@ -129,12 +131,12 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 
 	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)
 	if err != nil {
-		return fmt.Errorf("failed to create formatter: %w", err)
+		return fmt.Errorf("formatter: %w", err)
 	}
 
 	transactions, err := export.Transactions(ctx, exportType, exportOpts)
 	if err != nil {
-		return err
+		return fmt.Errorf("export: %w", err)
 	}
 
 	if err := format.WriteCollection(formatter, transactions); err != nil {

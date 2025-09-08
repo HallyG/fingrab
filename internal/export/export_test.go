@@ -20,7 +20,7 @@ func TestNewExporter(t *testing.T) {
 		exporter, err := export.NewExporter(export.ExportType("wow"), export.Options{})
 
 		require.Nil(t, exporter)
-		require.ErrorContains(t, err, "unsupported export type")
+		require.ErrorContains(t, err, "unsupported type: wow")
 	})
 }
 
@@ -29,7 +29,7 @@ func TestTransactions(t *testing.T) {
 
 	export.Register(ExportTypeStub, func(opts export.Options) (export.Exporter, error) {
 		if opts.AuthToken == "12345" {
-			return nil, errors.New("some error")
+			return nil, errors.New("invalid auth token")
 		}
 
 		return &StubExporter{
@@ -39,56 +39,72 @@ func TestTransactions(t *testing.T) {
 		}, nil
 	})
 
-	t.Run("success", func(t *testing.T) {
-		t.Parallel()
+	tests := map[string]struct {
+		opts                    export.Options
+		expectedErrMsg          string
+		expectedTransactionsLen int
+	}{
+		"success": {
+			opts: export.Options{
+				EndDate:   time.Now(),
+				StartDate: time.Now(),
+				AuthToken: "token",
+			},
+			expectedTransactionsLen: 1,
+		},
+		"returns error when invalid end date": {
+			opts: export.Options{
+				StartDate: time.Now(),
+				AuthToken: "token",
+			},
+			expectedErrMsg: "invalid options: EndDate: is required.",
+		},
+		"returns error when invalid start date": {
+			opts: export.Options{
+				EndDate:   time.Now(),
+				AuthToken: "token",
+			},
+			expectedErrMsg: "invalid options: StartDate: is required.",
+		},
+		"returns error when invalid token": {
+			opts: export.Options{
+				EndDate:   time.Now(),
+				StartDate: time.Now(),
+			},
+			expectedErrMsg: "invalid options: AuthToken: is required.",
+		},
+		"returns error when invalid exporter": {
+			opts: export.Options{
+				EndDate:   time.Now(),
+				StartDate: time.Now(),
+				AuthToken: "12345",
+			},
+			expectedErrMsg: "exporter: constructor: invalid auth token",
+		},
+		"returns error when date range too long": {
+			opts: export.Options{
+				StartDate: time.Now().Add(-48 * time.Hour),
+				EndDate:   time.Now(),
+				AuthToken: "token",
+			},
+			expectedErrMsg: "date range 2 days is too long, max is 1 days",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		transactions, err := export.Transactions(t.Context(), ExportTypeStub, export.Options{
-			EndDate:   time.Now(),
-			StartDate: time.Now(),
-			AuthToken: "token",
+			transactions, err := export.Transactions(t.Context(), ExportTypeStub, test.opts)
+
+			if test.expectedErrMsg != "" {
+				require.Nil(t, transactions)
+				require.ErrorContains(t, err, test.expectedErrMsg)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, transactions, test.expectedTransactionsLen)
+			}
 		})
-
-		require.Len(t, transactions, 1)
-		require.NoError(t, err)
-	})
-
-	t.Run("invalid opts", func(t *testing.T) {
-		t.Parallel()
-
-		transcations, err := export.Transactions(t.Context(), ExportTypeStub, export.Options{
-			StartDate: time.Now(),
-			AuthToken: "token",
-		})
-
-		require.Nil(t, transcations)
-		require.ErrorContains(t, err, "end time is required")
-	})
-
-	t.Run("invalid exporter", func(t *testing.T) {
-		t.Parallel()
-
-		transcations, err := export.Transactions(t.Context(), ExportTypeStub, export.Options{
-			EndDate:   time.Now(),
-			StartDate: time.Now(),
-			AuthToken: "12345",
-		})
-
-		require.Nil(t, transcations)
-		require.ErrorContains(t, err, "failed to create stubtype exporter")
-	})
-
-	t.Run("date range too long", func(t *testing.T) {
-		t.Parallel()
-
-		transactions, err := export.Transactions(t.Context(), ExportTypeStub, export.Options{
-			StartDate: time.Now().Add(-48 * time.Hour),
-			EndDate:   time.Now(),
-			AuthToken: "token",
-		})
-
-		require.ErrorContains(t, err, "date range is too long, max is 1 days")
-		require.Nil(t, transactions)
-	})
+	}
 }
 
 const ExportTypeStub export.ExportType = "stubtype"
