@@ -32,7 +32,7 @@ func register(format FormatType, constructor constructor) {
 func NewFormatter(format FormatType, w io.Writer) (Formatter, error) {
 	constructor, exists := registry[format]
 	if !exists {
-		return nil, fmt.Errorf("unsupported format type: %s", format)
+		return nil, fmt.Errorf("unsupported type: %s", format)
 	}
 
 	location := time.UTC
@@ -55,17 +55,17 @@ func All() []FormatType {
 // writing the header, writing all transactions, and flushing the output.
 func WriteCollection(formatter Formatter, transactions []*domain.Transaction) error {
 	if err := formatter.WriteHeader(); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
+		return fmt.Errorf("write header: %w", err)
 	}
 
 	for _, t := range transactions {
 		if err := formatter.WriteTransaction(t); err != nil {
-			return fmt.Errorf("failed to write transaction: %w", err)
+			return fmt.Errorf("write transaction: %w", err)
 		}
 	}
 
 	if err := formatter.Flush(); err != nil {
-		return fmt.Errorf("failed to flush formatter: %w", err)
+		return fmt.Errorf("flush: %w", err)
 	}
 
 	return nil

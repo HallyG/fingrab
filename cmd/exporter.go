@@ -131,10 +131,10 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 
 	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)
 	if err != nil {
-		return fmt.Errorf("create export formatter: %w", err)
+		return fmt.Errorf("create formatter: %w", err)
 	}
 
-	transactions, err := export.Transactions(ctx, exportType, exportOpts)
+	transactions, err := export.Transactions(ctx, export.ExportType("hello world"), exportOpts)
 	if err != nil {
 		return fmt.Errorf("%v transactions: %w", strings.ToLower(string(exportType)), err)
 	}
