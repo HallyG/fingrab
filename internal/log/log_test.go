@@ -2,6 +2,8 @@ package log_test
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -53,7 +55,7 @@ func TestNew(t *testing.T) {
 			expectedJSON: true,
 		},
 		"text format": {
-			opts:         []log.Option{log.WithTextHandler(false)},
+			opts:         []log.Option{log.WithTextHandler()},
 			expectedJSON: false,
 		},
 		"populates source attribute": {
@@ -67,6 +69,20 @@ func TestNew(t *testing.T) {
 			opts:          []log.Option{log.WithAttrs(slog.String("source", "something else"))},
 			expectedAttrs: []string{`source="something else"`},
 		},
+		"custom handler": {
+			opts: []log.Option{
+				log.WithHandler(func(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
+					return slog.NewTextHandler(w, opts).WithAttrs([]slog.Attr{slog.String("custom", "handler")})
+				}),
+			},
+			expectedAttrs: []string{`custom=handler`},
+		},
+		"colour handler": {
+			opts: []log.Option{
+				log.WithColourTextHandler(),
+			},
+			expectedAttrs: []string{"\x1b[92mINF\x1b[0m", "\x1b[2;91merr=\x1b[22m\"some error\"\x1b[0m"},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -76,7 +92,7 @@ func TestNew(t *testing.T) {
 			test.opts = append(test.opts, log.WithWriter(&buf))
 			logger := log.New(test.opts...)
 
-			logger.Info("test message")
+			logger.Info("test message", slog.Any("err", errors.New("some error")))
 			output := buf.String()
 			for _, attr := range test.expectedAttrs {
 				require.Contains(t, output, attr)
@@ -114,4 +130,46 @@ func assertIsJSONHandler(t *testing.T, logger *slog.Logger, expectedJSON bool) {
 	}
 
 	require.Equal(t, expectedJSON, isJSONHandler)
+}
+
+func TestReplaceSourceAttr(t *testing.T) {
+	t.Parallel()
+
+	testCases := map[string]struct {
+		attr     slog.Attr
+		expected slog.Attr
+	}{
+		"non-source attribute": {
+			attr:     slog.String("other", "value"),
+			expected: slog.String("other", "value"),
+		},
+		"source attribute with invalid value type": {
+			attr:     slog.Attr{Key: slog.SourceKey, Value: slog.StringValue("invalid")},
+			expected: slog.Attr{Key: slog.SourceKey, Value: slog.StringValue("invalid")},
+		},
+		"valid source attribute": {
+			attr: slog.Attr{
+				Key: slog.SourceKey,
+				Value: slog.AnyValue(&slog.Source{
+					Function: "TestFunc",
+					File:     "/path/to/file.go",
+					Line:     42,
+				}),
+			},
+			expected: slog.Attr{
+				Key:   slog.SourceKey,
+				Value: slog.StringValue("file.go:42"),
+			},
+		},
+	}
+
+	for name, test := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result := log.ReplaceSourceAttr(nil, test.attr)
+
+			require.Equal(t, test.expected, result)
+		})
+	}
 }
