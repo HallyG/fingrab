@@ -51,6 +51,7 @@ func TestFetchAccounts(t *testing.T) {
 		route            testutil.HTTPTestRoute
 		expectedAccounts []*monzo.Account
 		expectedMonzoErr *monzo.Error
+		expectedErrMsg   string
 		assertFn         func(t *testing.T, items []*monzo.Account)
 	}{
 		"successful fetch": {
@@ -89,6 +90,7 @@ func TestFetchAccounts(t *testing.T) {
 				Code:    "not_found",
 				Message: "/a not found",
 			},
+			expectedErrMsg: "/a not found (code=not_found)",
 		},
 	}
 	for name, test := range tests {
@@ -100,7 +102,7 @@ func TestFetchAccounts(t *testing.T) {
 
 			if test.expectedMonzoErr != nil {
 				require.Empty(t, accounts)
-				requireMonzoErrorEqual(t, *test.expectedMonzoErr, err)
+				requireMonzoErrorEqual(t, *test.expectedMonzoErr, test.expectedErrMsg, err)
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, accounts, test.expectedAccounts)
@@ -317,7 +319,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 }
 
-func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
+func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, expectedErrMsg string, err error) {
 	t.Helper()
 
 	require.Error(t, err)
@@ -328,4 +330,5 @@ func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
 
 	require.Equal(t, expectedErr.Code, monzoErr.Code)
 	require.Equal(t, expectedErr.Message, monzoErr.Message)
+	require.Equal(t, expectedErrMsg, monzoErr.Error())
 }
