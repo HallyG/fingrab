@@ -10,7 +10,7 @@ import (
 
 	"github.com/HallyG/fingrab/internal/api"
 	"github.com/HallyG/fingrab/internal/monzo"
-	"github.com/HallyG/fingrab/internal/util/testutil"
+	"github.com/HallyG/fingrab/internal/testhelper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,10 +21,10 @@ const (
 	potId         = monzo.PotID("pot_00009")
 )
 
-func setup(t *testing.T, routes ...testutil.HTTPTestRoute) monzo.Client {
+func setup(t *testing.T, routes ...testhelper.HTTPTestRoute) monzo.Client {
 	t.Helper()
 
-	server := testutil.NewHTTPTestServer(t, routes)
+	server := testhelper.NewHTTPTestServer(t, routes)
 	client := monzo.New(&http.Client{},
 		api.WithBaseURL(server.URL),
 		api.WithAuthToken(token),
@@ -48,13 +48,14 @@ func TestFetchAccounts(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route            testutil.HTTPTestRoute
+		route            testhelper.HTTPTestRoute
 		expectedAccounts []*monzo.Account
 		expectedMonzoErr *monzo.Error
+		expectedErrMsg   string
 		assertFn         func(t *testing.T, items []*monzo.Account)
 	}{
 		"successful fetch": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/accounts",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
@@ -62,11 +63,11 @@ func TestFetchAccounts(t *testing.T) {
 					query := url.Values{}
 					header.Add("Authorization", token)
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "accounts.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "accounts.json")(w, r)
 				},
 			},
-			expectedAccounts: testutil.MarshalTestDataFile[struct {
+			expectedAccounts: testhelper.MarshalTestDataFile[struct {
 				Accounts []*monzo.Account `json:"accounts"`
 			}](t, "accounts.json").Accounts,
 			assertFn: func(t *testing.T, items []*monzo.Account) {
@@ -77,18 +78,19 @@ func TestFetchAccounts(t *testing.T) {
 			},
 		},
 		"returns API error": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/accounts",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
-					testutil.AssertRequest(t, r, http.MethodGet, nil, nil)
-					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, nil, nil)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
 				},
 			},
 			expectedMonzoErr: &monzo.Error{
 				Code:    "not_found",
 				Message: "/a not found",
 			},
+			expectedErrMsg: "/a not found (code=not_found)",
 		},
 	}
 	for name, test := range tests {
@@ -100,7 +102,7 @@ func TestFetchAccounts(t *testing.T) {
 
 			if test.expectedMonzoErr != nil {
 				require.Empty(t, accounts)
-				requireMonzoErrorEqual(t, *test.expectedMonzoErr, err)
+				requireMonzoErrorEqual(t, *test.expectedMonzoErr, test.expectedErrMsg, err)
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, accounts, test.expectedAccounts)
@@ -113,13 +115,13 @@ func TestFetchTransaction(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route          testutil.HTTPTestRoute
+		route          testhelper.HTTPTestRoute
 		expectedItem   *monzo.Transaction
 		expectedErrMsg *monzo.Error
 		assertFn       func(t *testing.T, item *monzo.Transaction)
 	}{
 		"successful fetch": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    fmt.Sprintf("/transactions/%s", transactionId),
 				Handler: func(w http.ResponseWriter, r *http.Request) {
@@ -127,11 +129,11 @@ func TestFetchTransaction(t *testing.T) {
 					query := url.Values{}
 					header.Add("Authorization", token)
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "transaction.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "transaction.json")(w, r)
 				},
 			},
-			expectedItem: testutil.MarshalTestDataFile[struct {
+			expectedItem: testhelper.MarshalTestDataFile[struct {
 				Transaction *monzo.Transaction `json:"transaction"`
 			}](t, "transaction.json").Transaction,
 			assertFn: func(t *testing.T, item *monzo.Transaction) {
@@ -166,13 +168,13 @@ func TestFetchPots(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route          testutil.HTTPTestRoute
+		route          testhelper.HTTPTestRoute
 		expectedPots   []*monzo.Pot
 		expectedErrMsg *monzo.Error
 		assertFn       func(t *testing.T, items []*monzo.Pot)
 	}{
 		"successful fetch": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/pots",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
@@ -181,11 +183,11 @@ func TestFetchPots(t *testing.T) {
 					header.Add("Authorization", token)
 					query.Add("current_account_id", string(accountId))
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "pots.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "pots.json")(w, r)
 				},
 			},
-			expectedPots: testutil.MarshalTestDataFile[struct {
+			expectedPots: testhelper.MarshalTestDataFile[struct {
 				Pots []*monzo.Pot `json:"pots"`
 			}](t, "pots.json").Pots,
 			assertFn: func(t *testing.T, items []*monzo.Pot) {
@@ -222,14 +224,14 @@ func TestFetchTransactions(t *testing.T) {
 
 	tests := map[string]struct {
 		name           string
-		route          testutil.HTTPTestRoute
+		route          testhelper.HTTPTestRoute
 		opts           monzo.FetchTransactionOptions
 		expectedItems  []*monzo.Transaction
 		expectedErrMsg error
 		assertFn       func(t *testing.T, items []*monzo.Transaction)
 	}{
 		"successful fetch": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/transactions",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
@@ -240,14 +242,14 @@ func TestFetchTransactions(t *testing.T) {
 					query.Add("expand[]", "merchant")
 					query.Add("limit", "100")
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
 				},
 			},
 			opts: monzo.FetchTransactionOptions{
 				AccountID: accountId,
 			},
-			expectedItems: testutil.MarshalTestDataFile[struct {
+			expectedItems: testhelper.MarshalTestDataFile[struct {
 				Transactions []*monzo.Transaction `json:"transactions"`
 			}](t, "transactions.json").Transactions,
 			assertFn: func(t *testing.T, items []*monzo.Transaction) {
@@ -258,15 +260,15 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		"returns error when start time before end time": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/transactions",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
 					header := http.Header{}
 					query := url.Values{}
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
 				},
 			},
 			opts: monzo.FetchTransactionOptions{
@@ -277,15 +279,15 @@ func TestFetchTransactions(t *testing.T) {
 			expectedErrMsg: errors.New("invalid options: Start: must be before End"),
 		},
 		"returns error when account ID is not provided": {
-			route: testutil.HTTPTestRoute{
+			route: testhelper.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    "/transactions",
 				Handler: func(w http.ResponseWriter, r *http.Request) {
 					header := http.Header{}
 					query := url.Values{}
 
-					testutil.AssertRequest(t, r, http.MethodGet, header, query)
-					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
+					testhelper.AssertRequest(t, r, http.MethodGet, header, query)
+					testhelper.ServeJSONTestDataHandler(t, http.StatusOK, "transactions.json")(w, r)
 				},
 			},
 			opts: monzo.FetchTransactionOptions{
@@ -317,7 +319,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 }
 
-func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
+func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, expectedErrMsg string, err error) {
 	t.Helper()
 
 	require.Error(t, err)
@@ -328,4 +330,5 @@ func requireMonzoErrorEqual(t *testing.T, expectedErr monzo.Error, err error) {
 
 	require.Equal(t, expectedErr.Code, monzoErr.Code)
 	require.Equal(t, expectedErr.Message, monzoErr.Message)
+	require.Equal(t, expectedErrMsg, monzoErr.Error())
 }
