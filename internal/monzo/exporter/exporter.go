@@ -12,7 +12,7 @@ import (
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/monzo"
-	"github.com/HallyG/fingrab/internal/util/sliceutil"
+	"github.com/samber/lo"
 )
 
 const (
@@ -76,7 +76,7 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		slog.Int("transaction.count", len(transactions)),
 	)
 
-	return sliceutil.Map(transactions, func(txn *monzo.Transaction) *domain.Transaction {
+	return lo.Map(transactions, func(txn *monzo.Transaction, _ int) *domain.Transaction {
 		return &domain.Transaction{
 			Amount:    txn.Amount,
 			Reference: m.determineReference(txn),

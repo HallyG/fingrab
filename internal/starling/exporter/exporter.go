@@ -12,8 +12,8 @@ import (
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/starling"
-	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 const (
@@ -81,7 +81,7 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		slog.Int("transaction.count", len(transactions)),
 	)
 
-	return sliceutil.Map(transactions, func(txn *starling.FeedItem) *domain.Transaction {
+	return lo.Map(transactions, func(txn *starling.FeedItem, _ int) *domain.Transaction {
 		reference := s.determineReference(txn)
 
 		depositSignum := int64(-1)
@@ -156,7 +156,7 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 		return nil, fmt.Errorf("fetch transactions: %w", err)
 	}
 
-	transactionsWithRoundUp := sliceutil.Filter(transactions, func(txn *starling.FeedItem) bool {
+	transactionsWithRoundUp := lo.Filter(transactions, func(txn *starling.FeedItem, _ int) bool {
 		return txn.RoundUp != nil
 	})
 
@@ -166,7 +166,7 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 	}
 
 	transactions = append(transactions, roundUpTransactions...)
-	filteredTransactions := sliceutil.Filter(transactions, func(txn *starling.FeedItem) bool {
+	filteredTransactions := lo.Filter(transactions, func(txn *starling.FeedItem, _ int) bool {
 		return txn.Status != starling.StatusDeclined
 	})
 
@@ -209,7 +209,7 @@ func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, acco
 		}
 
 		seenCategoryIDs[txn.RoundUp.GoalCategoryID] = struct{}{}
-		roundUps := sliceutil.Filter(categoryTransactions, func(item *starling.FeedItem) bool {
+		roundUps := lo.Filter(categoryTransactions, func(item *starling.FeedItem, _ int) bool {
 			return item.CounterPartyID == starling.CounterPartyID(txn.CategoryID)
 		})
 

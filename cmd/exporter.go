@@ -12,7 +12,7 @@ import (
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/format"
 	"github.com/HallyG/fingrab/internal/log"
-	"github.com/HallyG/fingrab/internal/util/sliceutil"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -57,12 +57,16 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 		},
 	}
 
+	allFormats := strings.Join(lo.Map(format.All(), func(item format.FormatType, index int) string {
+		return fmt.Sprintf("%v", item)
+	}), ", ")
+
 	cmd.Flags().StringVar(&opts.StartDateStr, "start", "", "Start date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.EndDateStr, "end", "", "End date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (can also be set via %s_TOKEN environment variable)", strings.ToUpper(name)))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
-	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", sliceutil.ToDelimitedString(format.All())))
+	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", allFormats))
 
 	_ = cmd.MarkFlagRequired("start")
 
