@@ -14,7 +14,7 @@ GO_BUILD_TAGS =
 GO_LDFLAGS ?= -s -w -buildid= -X 'github.com/HallyG/${APP_NAME}/cmd.BuildShortSHA=$(BUILD_SHORT_SHA)' -X 'github.com/HallyG/${APP_NAME}/cmd.BuildVersion=$(BUILD_VERSION)'
 GO_PKG_MAIN := ${PWD}/main.go
 GO_PKGS := $(PWD)/internal/... $(PWD)/cmd/... 
-EXCLUDE_PKGS := 
+EXCLUDE_PKGS := internal/testhelper/testhelper
 GO_COVERAGE_PKGS := $(filter-out $(EXCLUDE_PKGS), $(shell go list $(GO_PKGS)))
 GO_COVERAGE_FILE := $(BUILD_DIR)/cover.out
 GO_COVERAGE_TEXT_FILE := $(BUILD_DIR)/cover.txt
