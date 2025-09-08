@@ -10,69 +10,60 @@ import (
 func TestCurrencyFormat(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		money    domain.Money
 		expected string
 	}{
-		{
-			name: "GBP positive amount",
+		"format GBP positive amount": {
 			money: domain.Money{
 				MinorUnit: 1245,
 				Currency:  "GBP",
 			},
 			expected: "12.45",
 		},
-		{
-			name: "JPY positive amount",
+		"format: JPY positive amount": {
 			money: domain.Money{
 				MinorUnit: 1245,
 				Currency:  "JPY",
 			},
 			expected: "1245",
 		},
-		{
-			name: "GBP zero amount",
+		"format GBP zero amount": {
 			money: domain.Money{
 				MinorUnit: 0,
 				Currency:  "GBP",
 			},
 			expected: "0.00",
 		},
-		{
-			name: "JPY zero amount",
+		"format JPY zero amount": {
 			money: domain.Money{
 				MinorUnit: 0,
 				Currency:  "JPY",
 			},
 			expected: "0",
 		},
-		{
-			name: "GBP negative amount",
+		"format GBP negative amount": {
 			money: domain.Money{
 				MinorUnit: -1245,
 				Currency:  "GBP",
 			},
 			expected: "-12.45",
 		},
-		{
-			name: "JPY negative amount",
+		"format JPY negative amount": {
 			money: domain.Money{
 				MinorUnit: -1245,
 				Currency:  "JPY",
 			},
 			expected: "-1245",
 		},
-		{
-			name: "Invalid currency",
+		"format invalid currency": {
 			money: domain.Money{
 				MinorUnit: 1245,
 				Currency:  "XYZ",
 			},
 			expected: "invalid currency: 1245 (XYZ)",
 		},
-		{
-			name: "Empty currency",
+		"format empty currency": {
 			money: domain.Money{
 				MinorUnit: 1245,
 				Currency:  "",
@@ -80,9 +71,8 @@ func TestCurrencyFormat(t *testing.T) {
 			expected: "invalid currency: 1245 ()",
 		},
 	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, test.expected, test.money.String())
 		})
