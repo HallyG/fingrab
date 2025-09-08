@@ -52,7 +52,8 @@ func init() {
 	rootCmd.SilenceUsage = true
 	rootCmd.SilenceErrors = true
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
+	rootCmd.PersistentFlags().BoolP("no-colour", "", false, "disable coloured output")
 
 	for _, exportType := range export.All() {
 		cmd := newExportCommand(exportType)
@@ -81,10 +82,17 @@ func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Wri
 
 func setupLogger(cmd *cobra.Command, _ []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	noColour, _ := cmd.Flags().GetBool("no-colour")
+
+	handlerOpt := log.WithColourTextHandler()
+	if noColour {
+		handlerOpt = log.WithTextHandler()
+	}
+
 	logger := log.New(
 		log.WithWriter(cmd.ErrOrStderr()),
 		log.WithVerbose(verbose),
-		log.WithTextHandler(),
+		handlerOpt,
 		log.WithAttrs(
 			slog.String("build.version", BuildVersion),
 			slog.String("build.sha", BuildShortSHA),
