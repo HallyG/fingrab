@@ -10,11 +10,10 @@ import (
 )
 
 type params struct {
-	verbose    bool
-	jsonFormat bool
-	colour     bool
-	attrs      []slog.Attr
-	writer     io.Writer
+	verbose   bool
+	attrs     []slog.Attr
+	writer    io.Writer
+	handlerFn func(w io.Writer, opts *slog.HandlerOptions) slog.Handler
 }
 
 type Option func(params *params)
@@ -29,15 +28,46 @@ func WithVerbose(verbose bool) Option {
 // WithJSONHandler enables JSON formatting for logs
 func WithJSONHandler() Option {
 	return func(params *params) {
-		params.jsonFormat = true
+		params.handlerFn = func(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
+			return slog.NewJSONHandler(params.writer, &slog.HandlerOptions{
+				Level:       opts.Level,
+				AddSource:   opts.AddSource,
+				ReplaceAttr: opts.ReplaceAttr,
+			})
+		}
 	}
 }
 
-// WithTextHandler enables JSON formatting for logs
-func WithTextHandler(colourOutput bool) Option {
+// WithTextHandler enables text formatting for logs
+func WithTextHandler() Option {
 	return func(params *params) {
-		params.jsonFormat = false
-		params.colour = colourOutput
+		params.handlerFn = func(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
+			return slog.NewTextHandler(params.writer, &slog.HandlerOptions{
+				Level:       opts.Level,
+				AddSource:   opts.AddSource,
+				ReplaceAttr: opts.ReplaceAttr,
+			})
+		}
+	}
+}
+
+func WithColourTextHandler() Option {
+	return func(params *params) {
+		params.handlerFn = func(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
+			return tint.NewHandler(w, &tint.Options{
+				Level:     opts.Level,
+				AddSource: opts.AddSource,
+				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+					if a.Value.Kind() == slog.KindAny {
+						if _, ok := a.Value.Any().(error); ok {
+							return tint.Attr(9, a)
+						}
+					}
+
+					return opts.ReplaceAttr(groups, a)
+				},
+			})
+		}
 	}
 }
 
@@ -54,6 +84,12 @@ func WithAttrs(attrs ...slog.Attr) Option {
 func WithWriter(w io.Writer) Option {
 	return func(params *params) {
 		params.writer = w
+	}
+}
+
+func WithHandler(fn func(w io.Writer, opts *slog.HandlerOptions) slog.Handler) Option {
+	return func(params *params) {
+		params.handlerFn = fn
 	}
 }
 
@@ -87,23 +123,14 @@ func New(opts ...Option) *slog.Logger {
 		level = slog.LevelDebug
 	}
 
-	var handler slog.Handler = slog.NewTextHandler(params.writer, &slog.HandlerOptions{
+	handlerOpts := &slog.HandlerOptions{
 		Level:       level,
 		AddSource:   true,
-		ReplaceAttr: replaceSourceAttr,
-	})
-	if params.jsonFormat {
-		handler = slog.NewJSONHandler(params.writer, &slog.HandlerOptions{
-			Level:       level,
-			AddSource:   true,
-			ReplaceAttr: replaceSourceAttr,
-		})
-	} else if params.colour {
-		handler = tint.NewHandler(params.writer, &tint.Options{
-			Level:       level,
-			AddSource:   true,
-			ReplaceAttr: replaceSourceAttrWithColour,
-		})
+		ReplaceAttr: ReplaceSourceAttr,
+	}
+	var handler slog.Handler = slog.NewTextHandler(params.writer, handlerOpts)
+	if params.handlerFn != nil {
+		handler = params.handlerFn(params.writer, handlerOpts)
 	}
 
 	attrs := []slog.Attr{}
@@ -111,31 +138,7 @@ func New(opts ...Option) *slog.Logger {
 	return slog.New(handler.WithAttrs(attrs))
 }
 
-func replaceSourceAttrWithColour(groups []string, a slog.Attr) slog.Attr {
-	if a.Value.Kind() == slog.KindAny {
-		if _, ok := a.Value.Any().(error); ok {
-			return tint.Attr(9, a)
-		}
-	}
-
-	if a.Key == "bank" && a.Value.Kind() == slog.KindString {
-		return tint.Attr(11, a)
-	}
-
-	return replaceSourceAttr(groups, a)
-}
-
-func replaceSourceAttr(groups []string, a slog.Attr) slog.Attr {
-	if a.Value.Kind() == slog.KindAny {
-		if _, ok := a.Value.Any().(error); ok {
-			return tint.Attr(9, a)
-		}
-	}
-
-	if a.Key == "bank" && a.Value.Kind() == slog.KindString {
-		return tint.Attr(11, a)
-	}
-
+func ReplaceSourceAttr(groups []string, a slog.Attr) slog.Attr {
 	if a.Key != slog.SourceKey {
 		return a
 	}
