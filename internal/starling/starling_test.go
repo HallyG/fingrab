@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HallyG/fingrab/internal/api"
 	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/starling"
 	"github.com/HallyG/fingrab/internal/util/testutil"
@@ -24,8 +25,8 @@ func setup(t *testing.T, routes ...testutil.HTTPTestRoute) starling.Client {
 
 	server := testutil.NewHTTPTestServer(t, routes)
 	client := starling.New(&http.Client{},
-		starling.WithBaseURL(server.URL),
-		starling.WithAuthToken(token),
+		api.WithBaseURL(server.URL),
+		api.WithAuthToken(token),
 	)
 
 	return client
@@ -46,10 +47,10 @@ func TestFetchAccounts(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		route            testutil.HTTPTestRoute
-		expectedAccounts []*starling.Account
-		expectedErr      *starling.Error
-		assertFn         func(t *testing.T, items []*starling.Account)
+		route               testutil.HTTPTestRoute
+		expectedAccounts    []*starling.Account
+		expectedStarlingErr *starling.Error
+		assertFn            func(t *testing.T, items []*starling.Account)
 	}{
 		"successful fetch": {
 			expectedAccounts: []*starling.Account{
@@ -91,7 +92,7 @@ func TestFetchAccounts(t *testing.T) {
 					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error.json")(w, r)
 				},
 			},
-			expectedErr: &starling.Error{
+			expectedStarlingErr: &starling.Error{
 				Code:    "invalid_token",
 				Message: "No access token provided in request. `Header: Authorization` must be set ",
 			},
@@ -105,7 +106,7 @@ func TestFetchAccounts(t *testing.T) {
 					testutil.ServeJSONTestDataHandler(t, http.StatusUnauthorized, "error-array.json")(w, r)
 				},
 			},
-			expectedErr: &starling.Error{
+			expectedStarlingErr: &starling.Error{
 				ErrorMessages: []starling.ErrorMessage{
 					{"MAX_TRANSACTION_TIMESTAMP_must not be null"},
 					{"MIN_TRANSACTION_TIMESTAMP_must not be null"},
@@ -120,9 +121,9 @@ func TestFetchAccounts(t *testing.T) {
 			client := setup(t, test.route)
 			items, err := client.FetchAccounts(t.Context())
 
-			if test.expectedErr != nil {
+			if test.expectedStarlingErr != nil {
 				require.Empty(t, items)
-				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, err)
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedAccounts)
@@ -140,10 +141,10 @@ func TestFetchSavingsGoals(t *testing.T) {
 	accountId := starling.AccountID(uuid.MustParse("00000000-0000-4000-0000-000000000033"))
 
 	tests := map[string]struct {
-		route         testutil.HTTPTestRoute
-		expectedGoals []*starling.SavingsGoal
-		expectedErr   *starling.Error
-		assertFn      func(t *testing.T, items []*starling.SavingsGoal)
+		route               testutil.HTTPTestRoute
+		expectedGoals       []*starling.SavingsGoal
+		expectedStarlingErr *starling.Error
+		assertFn            func(t *testing.T, items []*starling.SavingsGoal)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -176,9 +177,9 @@ func TestFetchSavingsGoals(t *testing.T) {
 			client := setup(t, test.route)
 			items, err := client.FetchSavingsGoals(t.Context(), accountId)
 
-			if test.expectedErr != nil {
+			if test.expectedStarlingErr != nil {
 				require.Empty(t, items)
-				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, errors.Unwrap(err))
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedGoals)
@@ -198,10 +199,10 @@ func TestFetchFeedItem(t *testing.T) {
 	categoryId := starling.CategoryID(uuid.MustParse("ccddccdd-ccdd-ccdd-ccdd-ccddccddccdd"))
 
 	tests := map[string]struct {
-		route        testutil.HTTPTestRoute
-		expectedItem *starling.FeedItem
-		expectedErr  *starling.Error
-		assertFn     func(y *testing.T, item *starling.FeedItem)
+		route               testutil.HTTPTestRoute
+		expectedItem        *starling.FeedItem
+		expectedStarlingErr *starling.Error
+		assertFn            func(y *testing.T, item *starling.FeedItem)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -252,9 +253,9 @@ func TestFetchFeedItem(t *testing.T) {
 
 			client := setup(t, test.route)
 			item, err := client.FetchFeedItem(t.Context(), accountId, categoryId, feedItemId)
-			if test.expectedErr != nil {
+			if test.expectedStarlingErr != nil {
 				require.Nil(t, item)
-				requireErrorEqual(t, *test.expectedErr, errors.Unwrap(err))
+				requireStarlingErrorEqual(t, *test.expectedStarlingErr, errors.Unwrap(err))
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, test.expectedItem, item)
@@ -280,12 +281,12 @@ func TestFetchTransactionsSince(t *testing.T) {
 	})
 
 	tests := map[string]struct {
-		name          string
-		route         testutil.HTTPTestRoute
-		opts          starling.FetchTransactionOptions
-		expectedItems []*starling.FeedItem
-		expectedErr   error
-		assertFn      func(t *testing.T, items []*starling.FeedItem)
+		name           string
+		route          testutil.HTTPTestRoute
+		opts           starling.FetchTransactionOptions
+		expectedItems  []*starling.FeedItem
+		expectedErrMsg error
+		assertFn       func(t *testing.T, items []*starling.FeedItem)
 	}{
 		"successful fetch": {
 			route: testutil.HTTPTestRoute{
@@ -318,7 +319,7 @@ func TestFetchTransactionsSince(t *testing.T) {
 				require.Equal(t, feedItemId, items[0].ID)
 			},
 		},
-		"returns error when invalid options": {
+		"returns error when start time before end time": {
 			route: testutil.HTTPTestRoute{
 				Method: http.MethodGet,
 				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/transactions-between", accountId.String(), categoryId.String()),
@@ -334,11 +335,55 @@ func TestFetchTransactionsSince(t *testing.T) {
 				},
 			},
 			opts: starling.FetchTransactionOptions{
-				End:       time.Now().Add(-24 * time.Hour),
+				End:        time.Now().Add(-24 * time.Hour),
+				Start:      time.Now(),
+				AccountID:  accountId,
+				CategoryID: categoryId,
+			},
+			expectedErrMsg: errors.New("invalid options: Start: must be before End"),
+		},
+		"returns error when invalid account id": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/transactions-between", accountId.String(), categoryId.String()),
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+					query.Add("minTransactionTimestamp", "2025-02-19T00:00:00Z")
+					query.Add("maxTransactionTimestamp", "2025-02-20T00:00:00Z")
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-items.json")(w, r)
+				},
+			},
+			opts: starling.FetchTransactionOptions{
+				End:   time.Now().Add(24 * time.Hour),
+				Start: time.Now(),
+			},
+			expectedErrMsg: errors.New("invalid options: AccountID: is required"),
+		},
+		"returns error when invalid category id": {
+			route: testutil.HTTPTestRoute{
+				Method: http.MethodGet,
+				URL:    fmt.Sprintf("/api/v2/feed/account/%s/category/%s/transactions-between", accountId.String(), categoryId.String()),
+				Handler: func(w http.ResponseWriter, r *http.Request) {
+					header := http.Header{}
+					query := url.Values{}
+					header.Add("Authorization", token)
+					query.Add("minTransactionTimestamp", "2025-02-19T00:00:00Z")
+					query.Add("maxTransactionTimestamp", "2025-02-20T00:00:00Z")
+
+					testutil.AssertRequest(t, r, http.MethodGet, header, query)
+					testutil.ServeJSONTestDataHandler(t, http.StatusOK, "feed-items.json")(w, r)
+				},
+			},
+			opts: starling.FetchTransactionOptions{
+				End:       time.Now().Add(24 * time.Hour),
 				Start:     time.Now(),
 				AccountID: accountId,
 			},
-			expectedErr: errors.New("start time must be before end time"),
+			expectedErrMsg: errors.New("invalid options: CategoryID: is required"),
 		},
 	}
 	for name, test := range tests {
@@ -348,9 +393,9 @@ func TestFetchTransactionsSince(t *testing.T) {
 			client := setup(t, test.route)
 
 			items, err := client.FetchTransactionsSince(t.Context(), test.opts)
-			if test.expectedErr != nil {
+			if test.expectedErrMsg != nil {
 				require.Empty(t, items)
-				require.ErrorContains(t, err, test.expectedErr.Error())
+				require.ErrorContains(t, err, test.expectedErrMsg.Error())
 			} else {
 				require.NoError(t, err)
 				require.ElementsMatch(t, items, test.expectedItems)
@@ -362,7 +407,7 @@ func TestFetchTransactionsSince(t *testing.T) {
 	}
 }
 
-func requireErrorEqual(t *testing.T, expectedErr starling.Error, err error) {
+func requireStarlingErrorEqual(t *testing.T, expectedErr starling.Error, err error) {
 	t.Helper()
 
 	require.Error(t, err)

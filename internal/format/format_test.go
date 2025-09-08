@@ -64,39 +64,37 @@ func TestNewFormatter(t *testing.T) {
 	t.Run("returns error for unknown format", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := format.NewFormatter("unknown", nil)
-		require.Error(t, err)
+		format, err := format.NewFormatter("unknown", nil)
+
+		require.Nil(t, format)
+		require.ErrorContains(t, err, "unsupported type: unknown")
 	})
 }
 
 func TestWriteAll(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name           string
-		expectedMsg    string
-		headerErr      error
-		transactionErr error
-		flushErr       error
+	tests := map[string]struct {
+		headerErr        error
+		transactionErr   error
+		flushErr         error
+		expectedErrorMsg string
 	}{
-		{
-			name:        "formatter write header error",
-			expectedMsg: "header error",
-			headerErr:   errors.New("header error"),
+		"returns error when writing header fails": {
+			expectedErrorMsg: "write header: io error",
+			headerErr:        errors.New("io error"),
 		},
-		{
-			name:           "formatter write transaction error",
-			expectedMsg:    "transaction error",
-			transactionErr: errors.New("transaction error"),
+		"returns error when writing transaction fails": {
+			expectedErrorMsg: "write transaction: io error",
+			transactionErr:   errors.New("io error"),
 		},
-		{
-			name:        "formatter flush error",
-			expectedMsg: "flush error",
-			flushErr:    errors.New("flush error"),
+		"returns error when flush fails": {
+			expectedErrorMsg: "flush: io error",
+			flushErr:         errors.New("io error"),
 		},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			buffer := bytes.NewBuffer(nil)
@@ -106,7 +104,7 @@ func TestWriteAll(t *testing.T) {
 			formatter.flushErr = test.flushErr
 
 			err := format.WriteCollection(formatter, testTransactions(t, time.Now()))
-			require.ErrorContains(t, err, test.expectedMsg)
+			require.ErrorContains(t, err, test.expectedErrorMsg)
 		})
 	}
 }
@@ -114,7 +112,8 @@ func TestWriteAll(t *testing.T) {
 func testTransactions(t *testing.T, now time.Time) []*domain.Transaction {
 	t.Helper()
 
-	time, err := time.Parse(time.RFC3339, "2025-05-04T23:16:52.392Z") // close to midnight boundary so we can test timezone changes
+	// We chose this time because it's close to midnight boundary, allowing us to test timezone changes
+	time, err := time.Parse(time.RFC3339, "2025-05-04T23:16:52.392Z")
 	require.NoError(t, err)
 
 	return []*domain.Transaction{

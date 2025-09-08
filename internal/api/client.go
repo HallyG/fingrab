@@ -17,10 +17,43 @@ const (
 	defaultRetryCount       = 3
 	defaultRetryWaitTime    = 2 * time.Second
 	defaultMaxRetryWaitTime = 10 * time.Second
+	authorizationHeader     = "Authorization"
 )
 
 type Option func(*resty.Client)
 
+// WithAuthToken configures the client to include an Authorization header with the specified token.
+func WithAuthToken(authToken string) Option {
+	return func(c *resty.Client) {
+		c.SetHeader(authorizationHeader, authToken)
+	}
+}
+
+// WithAuthToken configures the client to use the specified URL as the base URL for all requests.
+func WithBaseURL(url string) Option {
+	return func(c *resty.Client) {
+		c.SetBaseURL(url)
+	}
+}
+
+// WithError configures the client to unmarshal error responses into a specific error type.
+// Example:
+//
+//	type APIError struct { Message string }
+//	client := New("https://api.example.com", &http.Client{}, WithError[APIError]())
+func WithError[E error]() Option {
+	return func(c *resty.Client) {
+		var err E
+		c.SetError(&err)
+	}
+}
+
+// New creates a new resty.Client with a pre-configured base URL, timeout logic, retry logic, and a logging middleware.
+// Additional options can be provided to further customize the client.
+//
+// Example:
+//
+//	client := New("https://api.example.com", &http.Client{}, WithAuthToken("Bearer token"))
 func New(baseURL string, httpClient *http.Client, opts ...Option) *resty.Client {
 	client := resty.NewWithClient(httpClient).
 		SetBaseURL(baseURL).
@@ -60,25 +93,16 @@ func New(baseURL string, httpClient *http.Client, opts ...Option) *resty.Client 
 	return client
 }
 
-func WithAuthToken(authToken string) Option {
-	return func(c *resty.Client) {
-		c.SetHeader("Authorization", authToken)
-	}
-}
-
-func WithBaseURL(url string) Option {
-	return func(c *resty.Client) {
-		c.SetBaseURL(url)
-	}
-}
-
-func WithError[E error]() Option {
-	return func(c *resty.Client) {
-		var err E
-		c.SetError(&err)
-	}
-}
-
+// ExecuteRequest performs an HTTP request with the specified method, URL, and query parameters, and unmarshals the response into the provided type T.
+// Returns an error if the request fails or the if the response indicates an error (4xx or 5xx status code).
+// Example:
+//
+//	type User struct { ID string; Name string }
+//	user, err := ExecuteRequest[User](ctx, client, "GET", "/users/123", nil)
+//	if err != nil {
+//	    // Handle error
+//	}
+//	fmt.Printf("User: %+v\n", user)
 func ExecuteRequest[T any](ctx context.Context, client *resty.Client, method, url string, values url.Values) (*T, error) {
 	var result T
 
@@ -89,14 +113,15 @@ func ExecuteRequest[T any](ctx context.Context, client *resty.Client, method, ur
 		SetQueryParamsFromValues(values).
 		Execute(method, url)
 	if err != nil {
-		return nil, fmt.Errorf("%s %s failed: %w", method, resp.Request.URL, err)
+		return nil, fmt.Errorf("execute %s %s: %w", method, resp.Request.URL, err)
 	}
 
 	if resp.IsError() {
 		if err, ok := resp.Error().(error); ok {
 			return nil, err
 		}
-		return nil, fmt.Errorf("http %d: %s", resp.StatusCode(), resp.String())
+
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode(), resp.String())
 	}
 
 	return &result, nil

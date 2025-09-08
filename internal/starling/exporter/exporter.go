@@ -12,15 +12,15 @@ import (
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/log"
 	"github.com/HallyG/fingrab/internal/starling"
-	"github.com/HallyG/fingrab/internal/util/sliceutil"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 const (
-	ExportTypeStarling   = export.ExportType("Starling")
 	Starling             = "Starling"
+	ExportTypeStarling   = export.ExportType(Starling)
 	starlingTimeFormat   = "2006-01-02"
-	starlingMaxDateRange = 0
+	starlingMaxDateRange = time.Duration(0)
 )
 
 var _ export.Exporter = (*TransactionExporter)(nil)
@@ -48,15 +48,14 @@ func (s *TransactionExporter) MaxDateRange() time.Duration {
 
 func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid opts: %w", err)
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
 	accountID := starling.AccountID(uuid.Nil)
-
 	if opts.AccountID != "" {
 		uuid, err := uuid.Parse(opts.AccountID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse account id: %w", err)
+			return nil, fmt.Errorf("parse account id: %w", err)
 		}
 
 		accountID = starling.AccountID(uuid)
@@ -73,7 +72,6 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	}
 
 	categoryID := account.DefaultCategoryID
-
 	transactions, err := s.fetchTransactionsSince(ctx, account.ID, categoryID, opts.StartDate, opts.EndDate)
 	if err != nil {
 		return nil, err
@@ -83,7 +81,7 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 		slog.Int("transaction.count", len(transactions)),
 	)
 
-	return sliceutil.Map(transactions, func(txn *starling.FeedItem) *domain.Transaction {
+	return lo.Map(transactions, func(txn *starling.FeedItem, _ int) *domain.Transaction {
 		reference := s.determineReference(txn)
 
 		depositSignum := int64(-1)
@@ -111,7 +109,7 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 func (s *TransactionExporter) fetchAccount(ctx context.Context, accountID starling.AccountID) (*starling.Account, error) {
 	accounts, err := s.api.FetchAccounts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch accounts: %w", err)
 	}
 
 	if len(accounts) == 0 {
@@ -155,10 +153,10 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 		End:        end,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch transactions: %w", err)
 	}
 
-	transactionsWithRoundUp := sliceutil.Filter(transactions, func(txn *starling.FeedItem) bool {
+	transactionsWithRoundUp := lo.Filter(transactions, func(txn *starling.FeedItem, _ int) bool {
 		return txn.RoundUp != nil
 	})
 
@@ -168,7 +166,7 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 	}
 
 	transactions = append(transactions, roundUpTransactions...)
-	filteredTransactions := sliceutil.Filter(transactions, func(txn *starling.FeedItem) bool {
+	filteredTransactions := lo.Filter(transactions, func(txn *starling.FeedItem, _ int) bool {
 		return txn.Status != starling.StatusDeclined
 	})
 
@@ -179,29 +177,6 @@ func (s *TransactionExporter) fetchTransactionsSince(ctx context.Context, accoun
 	)
 
 	return filteredTransactions, nil
-}
-
-func (s *TransactionExporter) determineReference(txn *starling.FeedItem) string {
-	if txn.CategoryName == "TRANSFERS" && txn.CounterPartyType == "CATEGORY" && txn.Source == "INTERNAL_TRANSFER" && txn.SourceSubType == "" {
-		return "Savings Pot"
-	}
-
-	// Interest
-	if txn.CategoryName == "INCOME" && txn.CounterPartyType == "STARLING" && txn.Source == "INTEREST_PAYMENT" && txn.SourceSubType == "DEPOSIT" {
-		return "Interest Capitalisation"
-	}
-
-	// Merchant
-	if txn.CounterPartyName != "" && txn.CounterPartyType == "MERCHANT" {
-		return txn.CounterPartyName
-	}
-
-	// Sender
-	if txn.CounterPartyName != "" && txn.CounterPartyType == "SENDER" {
-		return fmt.Sprintf("%s (%s)", txn.Description, txn.CounterPartyName)
-	}
-
-	return strings.TrimSpace(txn.Description)
 }
 
 func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, accountID starling.AccountID, start time.Time, end time.Time, transactionsWithRoundUp []*starling.FeedItem) ([]*starling.FeedItem, error) {
@@ -230,11 +205,11 @@ func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, acco
 			End:        end,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("fetch roundup transactions: %w", err)
 		}
 
 		seenCategoryIDs[txn.RoundUp.GoalCategoryID] = struct{}{}
-		roundUps := sliceutil.Filter(categoryTransactions, func(item *starling.FeedItem) bool {
+		roundUps := lo.Filter(categoryTransactions, func(item *starling.FeedItem, _ int) bool {
 			return item.CounterPartyID == starling.CounterPartyID(txn.CategoryID)
 		})
 
@@ -245,4 +220,27 @@ func (s *TransactionExporter) fetchRoundUpTransactions(ctx context.Context, acco
 	}
 
 	return roundUpTransactions, nil
+}
+
+func (s *TransactionExporter) determineReference(txn *starling.FeedItem) string {
+	if txn.CategoryName == "TRANSFERS" && txn.CounterPartyType == "CATEGORY" && txn.Source == "INTERNAL_TRANSFER" && txn.SourceSubType == "" {
+		return "Savings Pot"
+	}
+
+	// Interest
+	if txn.CategoryName == "INCOME" && txn.CounterPartyType == "STARLING" && txn.Source == "INTEREST_PAYMENT" && txn.SourceSubType == "DEPOSIT" {
+		return "Interest Capitalisation"
+	}
+
+	// Merchant
+	if txn.CounterPartyName != "" && txn.CounterPartyType == "MERCHANT" {
+		return txn.CounterPartyName
+	}
+
+	// Sender
+	if txn.CounterPartyName != "" && txn.CounterPartyType == "SENDER" {
+		return fmt.Sprintf("%s (%s)", txn.Description, txn.CounterPartyName)
+	}
+
+	return strings.TrimSpace(txn.Description)
 }

@@ -1,11 +1,11 @@
 package starling
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/HallyG/fingrab/internal/domain"
-	"github.com/HallyG/fingrab/internal/util/uuidutil"
 	"github.com/google/uuid"
 )
 
@@ -18,13 +18,13 @@ type (
 )
 
 func (a *AccountID) UnmarshalJSON(data []byte) error {
-	id, err := uuidutil.UnmarshallJSONUUID(data)
+	var id uuid.UUID
+	err := json.Unmarshal(data, &id)
 	if err != nil {
 		return err
 	}
 
 	*a = AccountID(id)
-
 	return nil
 }
 
@@ -33,7 +33,8 @@ func (a AccountID) String() string {
 }
 
 func (f *FeedItemID) UnmarshalJSON(data []byte) error {
-	id, err := uuidutil.UnmarshallJSONUUID(data)
+	var id uuid.UUID
+	err := json.Unmarshal(data, &id)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,8 @@ func (f FeedItemID) String() string {
 }
 
 func (s *SavingsGoalID) UnmarshalJSON(data []byte) error {
-	id, err := uuidutil.UnmarshallJSONUUID(data)
+	var id uuid.UUID
+	err := json.Unmarshal(data, &id)
 	if err != nil {
 		return err
 	}
@@ -63,7 +65,8 @@ func (s SavingsGoalID) String() string {
 }
 
 func (c *CategoryID) UnmarshalJSON(data []byte) error {
-	id, err := uuidutil.UnmarshallJSONUUID(data)
+	var id uuid.UUID
+	err := json.Unmarshal(data, &id)
 	if err != nil {
 		return err
 	}
@@ -78,7 +81,8 @@ func (c CategoryID) String() string {
 }
 
 func (c *CounterPartyID) UnmarshalJSON(data []byte) error {
-	id, err := uuidutil.UnmarshallJSONUUID(data)
+	var id uuid.UUID
+	err := json.Unmarshal(data, &id)
 	if err != nil {
 		return err
 	}

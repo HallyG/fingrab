@@ -8,26 +8,24 @@ import (
 )
 
 const (
-	ynabTimeFormat            = "01/02/2006" // MM/DD/YYYY
+	ynabTimeFormat            = "01/02/2006" //date format expected by YNAB (MM/DD/YYYY).
 	FormatTypeYNAB FormatType = "ynab"
 )
 
 func init() {
-	register(FormatTypeYNAB, func(w io.Writer, location *time.Location) Formatter {
-		return newYNABFormatter(w, location)
+	register(FormatTypeYNAB, func(w io.Writer, location *time.Location) (Formatter, error) {
+		return &YNABFormatter{
+			CSVFormatter: NewCSVFormatter(w),
+			location:     location,
+		}, nil
 	})
 }
 
+// YNABFormatter formats transactions for import into You Need A Budget (YNAB).
+// It outputs CSV with columns: Date, Payee, Memo, Amount.
 type YNABFormatter struct {
 	*CSVFormatter
 	location *time.Location
-}
-
-func newYNABFormatter(w io.Writer, location *time.Location) *YNABFormatter {
-	return &YNABFormatter{
-		CSVFormatter: NewCSVFormatter(w),
-		location:     location,
-	}
 }
 
 func (y *YNABFormatter) WriteHeader() error {

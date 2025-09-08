@@ -9,6 +9,7 @@ import (
 
 	"github.com/HallyG/fingrab/internal/api"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/google/uuid"
 	"resty.dev/v3"
 )
 
@@ -20,29 +21,26 @@ const (
 	getSavingsRoute      = "/api/v2/account/%s/savings-goals"
 )
 
-type Client interface {
-	FetchTransactionsSince(ctx context.Context, opts FetchTransactionOptions) ([]*FeedItem, error)
-	FetchFeedItem(ctx context.Context, accountID AccountID, categoryID CategoryID, feedItemID FeedItemID) (*FeedItem, error)
-	FetchAccounts(ctx context.Context) ([]*Account, error)
-	FetchSavingsGoals(ctx context.Context, accountID AccountID) ([]*SavingsGoal, error)
-}
-
 var _ Client = (*client)(nil)
 
-type client struct {
-	api *resty.Client
-}
-
-type Option func(*client)
-
-func New(httpClient *http.Client, opts ...Option) *client {
-	c := &client{
-		api: api.New(
-			prodAPI,
-			httpClient,
-			api.WithError[Error](),
-		),
+type (
+	Client interface {
+		FetchTransactionsSince(ctx context.Context, opts FetchTransactionOptions) ([]*FeedItem, error)
+		FetchFeedItem(ctx context.Context, accountID AccountID, categoryID CategoryID, feedItemID FeedItemID) (*FeedItem, error)
+		FetchAccounts(ctx context.Context) ([]*Account, error)
+		FetchSavingsGoals(ctx context.Context, accountID AccountID) ([]*SavingsGoal, error)
 	}
+	client struct {
+		api *resty.Client
+	}
+)
+
+func New(httpClient *http.Client, opts ...api.Option) *client {
+	c := api.New(
+		prodAPI,
+		httpClient,
+		api.WithError[Error](),
+	)
 
 	for _, opt := range opts {
 		if opt == nil {
@@ -52,18 +50,8 @@ func New(httpClient *http.Client, opts ...Option) *client {
 		opt(c)
 	}
 
-	return c
-}
-
-func WithAuthToken(authToken string) Option {
-	return func(c *client) {
-		api.WithAuthToken(authToken)(c.api)
-	}
-}
-
-func WithBaseURL(baseURL string) Option {
-	return func(c *client) {
-		api.WithBaseURL(baseURL)(c.api)
+	return &client{
+		api: c,
 	}
 }
 
@@ -74,7 +62,7 @@ func (c *client) FetchFeedItem(ctx context.Context, accountID AccountID, categor
 		url.Values{},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch feed item: %w", err)
+		return nil, err
 	}
 
 	return result, nil
@@ -90,7 +78,7 @@ func (c *client) FetchAccounts(ctx context.Context) ([]*Account, error) {
 		url.Values{},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch accounts: %w", err)
+		return nil, err
 	}
 
 	return result.Accounts, nil
@@ -106,7 +94,7 @@ func (c *client) FetchSavingsGoals(ctx context.Context, accountID AccountID) ([]
 		url.Values{},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch savings goals: %w", err)
+		return nil, err
 	}
 
 	return result.SavingsGoals, nil
@@ -114,7 +102,7 @@ func (c *client) FetchSavingsGoals(ctx context.Context, accountID AccountID) ([]
 
 func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransactionOptions) ([]*FeedItem, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
 	values := url.Values{}
@@ -131,7 +119,7 @@ func (c *client) FetchTransactionsSince(ctx context.Context, opts FetchTransacti
 		values,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch transactions: %w", err)
+		return nil, err
 	}
 
 	return result.FeedItems, nil
@@ -146,17 +134,27 @@ type FetchTransactionOptions struct {
 
 func (fto FetchTransactionOptions) Validate(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &fto,
-		validation.Field(&fto.AccountID, validation.Required.Error("account ID is required")),
-		validation.Field(&fto.CategoryID, validation.Required.Error("category ID is required")),
-		validation.Field(&fto.End, validation.Required.Error("end time is required")),
-		validation.Field(&fto.Start, validation.When(!fto.End.IsZero(), validation.By(func(value any) error {
-			start, ok := value.(time.Time)
-			if !ok {
-				return validation.NewError("validation_invalid_type", "start time must be a valid time")
+		validation.Field(&fto.AccountID, validation.By(func(value any) error {
+			uid, _ := value.(AccountID)
+			if uid == AccountID(uuid.Nil) {
+				return validation.NewError("validation_required", "is required")
 			}
 
+			return nil
+		})),
+		validation.Field(&fto.CategoryID, validation.By(func(value any) error {
+			uid, _ := value.(CategoryID)
+			if uid == CategoryID(uuid.Nil) {
+				return validation.NewError("validation_required", "is required")
+			}
+
+			return nil
+		})),
+		validation.Field(&fto.End, validation.Required.Error("is required")),
+		validation.Field(&fto.Start, validation.When(!fto.End.IsZero(), validation.By(func(value any) error {
+			start, _ := value.(time.Time)
 			if !start.Before(fto.End) {
-				return validation.NewError("validation_invalid_time_range", "start time must be before end time")
+				return validation.NewError("validation_invalid_time_range", "must be before End")
 			}
 
 			return nil
