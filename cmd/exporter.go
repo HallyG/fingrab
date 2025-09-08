@@ -46,7 +46,7 @@ func newExportCommand(exporterType export.ExportType) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   strings.ToLower(name),
 		Short: "Export transactions from " + name,
-		Long:  `Export banking transactions for the specified date range from supported providers.`,
+		Long:  fmt.Sprintf("Export banking transactions from %s for the specified date range.", name),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
 			if err != nil {
