@@ -86,12 +86,12 @@ func All() []ExportType {
 
 func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, fmt.Errorf("invalid export options: %w", err)
 	}
 
 	exporter, err := NewExporter(exportType, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create %s exporter: %w", exportType, err)
+		return nil, fmt.Errorf("create %s exporter: %w", exportType, err)
 	}
 
 	maxDateRange := exporter.MaxDateRange()

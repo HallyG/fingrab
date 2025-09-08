@@ -48,7 +48,7 @@ func (s *TransactionExporter) MaxDateRange() time.Duration {
 
 func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid opts: %w", err)
+		return nil, fmt.Errorf("invalid export opts: %w", err)
 	}
 
 	accountID := starling.AccountID(uuid.Nil)
@@ -56,7 +56,7 @@ func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	if opts.AccountID != "" {
 		uuid, err := uuid.Parse(opts.AccountID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse account id: %w", err)
+			return nil, fmt.Errorf("parse account id: %w", err)
 		}
 
 		accountID = starling.AccountID(uuid)
