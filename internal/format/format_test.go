@@ -12,39 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var _ format.Formatter = (*StubFormatter)(nil)
-
-type StubFormatter struct {
-	w              io.Writer
-	headerErr      error
-	transactionErr error
-	flushErr       error
-}
-
-func (s *StubFormatter) WriteHeader() error {
-	if s.headerErr != nil {
-		return s.headerErr
-	}
-
-	_, err := s.w.Write([]byte("header content\n"))
-
-	return err
-}
-
-func (s *StubFormatter) WriteTransaction(transaction *domain.Transaction) error {
-	if s.transactionErr != nil {
-		return s.transactionErr
-	}
-
-	_, err := s.w.Write([]byte("transaction content\n"))
-
-	return err
-}
-
-func (s *StubFormatter) Flush() error {
-	return s.flushErr
-}
-
 func TestAll(t *testing.T) {
 	t.Parallel()
 
@@ -140,4 +107,37 @@ func testTransactions(t *testing.T, now time.Time) []*domain.Transaction {
 			Notes:     "Test Notes",
 		},
 	}
+}
+
+var _ format.Formatter = (*StubFormatter)(nil)
+
+type StubFormatter struct {
+	w              io.Writer
+	headerErr      error
+	transactionErr error
+	flushErr       error
+}
+
+func (s *StubFormatter) WriteHeader() error {
+	if s.headerErr != nil {
+		return s.headerErr
+	}
+
+	_, err := s.w.Write([]byte("header content\n"))
+
+	return err
+}
+
+func (s *StubFormatter) WriteTransaction(transaction *domain.Transaction) error {
+	if s.transactionErr != nil {
+		return s.transactionErr
+	}
+
+	_, err := s.w.Write([]byte("transaction content\n"))
+
+	return err
+}
+
+func (s *StubFormatter) Flush() error {
+	return s.flushErr
 }

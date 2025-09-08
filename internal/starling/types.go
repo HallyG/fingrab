@@ -173,7 +173,6 @@ func (err Error) Error() string {
 
 	if err.Message != "" {
 		sb.WriteString(err.Message)
-		sb.WriteString(" ")
 	}
 
 	if len(err.ErrorMessages) > 0 {
@@ -184,7 +183,7 @@ func (err Error) Error() string {
 
 		sb.WriteString("[")
 		sb.WriteString(strings.Join(errorMessages, ", "))
-		sb.WriteString("] ")
+		sb.WriteString("]")
 	}
 
 	return sb.String()

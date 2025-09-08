@@ -7,6 +7,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestToMajorUnit(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		money    domain.Money
+		expected float64
+	}{
+		"returns float when nil currency": {
+			money: domain.Money{
+				MinorUnit: 1245,
+			},
+			expected: float64(1245),
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.InEpsilon(t, test.expected, test.money.ToMajorUnit(), 0.01)
+		})
+	}
+}
+
 func TestCurrencyFormat(t *testing.T) {
 	t.Parallel()
 
