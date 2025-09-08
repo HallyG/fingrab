@@ -86,8 +86,11 @@ fingrab export monzo --start 2025-03-01 --end 2025-03-31
 # Exporting to Moneydance format
 fingrab export monzo --token <monzo-api-token> --start 2025-03-01 --end 2025-03-31 --format moneydance
 
-# Verbose output
+# Verbose logging
 fingrab export monzo --token <monzo-api-token> --start 2025-03-01 --end 2025-03-31 --verbose
+
+# Logging without colour
+fingrab export monzo --token <monzo-api-token> --start 2025-03-01 --end 2025-03-31 --verbose --no-colour
 ```
 
 #### Starling
@@ -102,8 +105,11 @@ fingrab export starling --start 2025-03-01 --end 2025-03-31
 # Exporting to Moneydance format
 fingrab export starling --token <starling-api-token> --start 2025-03-01 --end 2025-03-31 --format moneydance
 
-# Verbose output
+# Verbose logging
 fingrab export starling --token <starling-api-token> --start 2025-03-01 --end 2025-03-31 --verbose
+
+# Logging without colour
+fingrab export starling --token <starling-api-token> --start 2025-03-01 --end 2025-03-31 --verbose --no-colour
 ```
 ## Contributing
 

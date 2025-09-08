@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+
+	"github.com/lmittmann/tint"
 )
 
 type params struct {
@@ -44,6 +46,26 @@ func WithTextHandler() Option {
 				Level:       opts.Level,
 				AddSource:   opts.AddSource,
 				ReplaceAttr: opts.ReplaceAttr,
+			})
+		}
+	}
+}
+
+func WithColourTextHandler() Option {
+	return func(params *params) {
+		params.handlerFn = func(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
+			return tint.NewHandler(w, &tint.Options{
+				Level:     opts.Level,
+				AddSource: opts.AddSource,
+				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+					if a.Value.Kind() == slog.KindAny {
+						if _, ok := a.Value.Any().(error); ok {
+							return tint.Attr(9, a)
+						}
+					}
+
+					return opts.ReplaceAttr(groups, a)
+				},
 			})
 		}
 	}
