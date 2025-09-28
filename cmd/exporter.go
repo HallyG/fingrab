@@ -88,7 +88,7 @@ func getAuthToken(opts *exportOptions, exportType export.ExportType) (string, er
 		return "", fmt.Errorf("authentication token is required. Please provide it via --token flag or %s environment variable", envVar)
 	}
 
-	return opts.AuthToken, nil
+	return authToken, nil
 }
 
 func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
