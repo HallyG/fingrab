@@ -77,14 +77,19 @@ func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts expor
 	)
 
 	return lo.Map(transactions, func(txn *monzo.Transaction, _ int) *domain.Transaction {
+		reference, notes := m.determineReference(txn)
+		if txn.UserNotes != "" {
+			notes = txn.UserNotes
+		}
+
 		return &domain.Transaction{
 			Amount:    txn.Amount,
-			Reference: m.determineReference(txn),
+			Reference: reference,
 			Category:  txn.CategoryName,
 			CreatedAt: txn.CreatedAt,
 			IsDeposit: txn.LocalAmount.MinorUnit > 0,
 			BankName:  Monzo,
-			Notes:     txn.UserNotes,
+			Notes:     notes,
 		}
 	}), nil
 }
@@ -221,16 +226,21 @@ func (m *TransactionExporter) enrichTransactionDescriptions(ctx context.Context,
 	return nil
 }
 
-func (m *TransactionExporter) determineReference(txn *monzo.Transaction) string {
+func (m *TransactionExporter) determineReference(txn *monzo.Transaction) (string, string) {
 	reference := txn.Description
+	notes := ""
 
 	switch {
-	case txn.Merchant != nil && txn.Merchant.Name != "":
-		reference = txn.Merchant.Name
+	// When splitting payment with someone
+	case txn.CounterParty != nil && txn.CounterParty.Name != "" && txn.Merchant != nil && txn.Merchant.Name != "":
+		reference = txn.CounterParty.Name
+		notes = txn.Merchant.Name
 	case txn.CounterParty != nil && txn.CounterParty.Name != "":
 		reference = txn.CounterParty.Name
+	case txn.Merchant != nil && txn.Merchant.Name != "":
+		reference = txn.Merchant.Name
 	default:
 	}
 
-	return strings.TrimSpace(reference)
+	return strings.TrimSpace(reference), strings.TrimSpace(notes)
 }
