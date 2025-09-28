@@ -2,7 +2,7 @@ PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
 APP_NAME := fingrab
-DOCKER_IMAGE := hallyg/${APP_NAME}
+DOCKER_IMAGE := ghcr.io/hallyg/${APP_NAME}
 
 BUILD_VERSION := $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short=8 --verify HEAD)
 BUILD_SHA := $(shell git rev-parse --short=8 --verify HEAD)
@@ -21,9 +21,7 @@ GO_COVERAGE_HTML_FILE := $(BUILD_DIR)/cover.html
 GOLANGCI_CMD := go tool golangci-lint
 GOLANGCI_ARGS ?= --fix --concurrency=4
 GOLANGCI_FILES ?= ${GO_PKGS}
-
-DOCKER_DIR := ${PWD}
-DOCKER_FILE := ${DOCKER_DIR}/Dockerfile
+GORELEASER_CMD := @goreleaser
 
 .PHONY: help
 help:
@@ -65,23 +63,6 @@ audit: clean lint
 	@$(GO_CMD) mod verify
 	@$(GO_CMD) fmt ${GO_PKGS}
 
-## docker/build: build the application docker image
-.PHONY: docker/build
-docker/build:
-	@docker build \
-		-t ${DOCKER_IMAGE}:$(BUILD_VERSION) \
-		-t ${DOCKER_IMAGE}:latest \
-		-f $(DOCKER_FILE) ${PWD} \
-		--build-arg BUILD_DATE=${BUILD_DATE} \
-		--build-arg COMMIT_HASH=${BUILD_SHA} \
-		--build-arg BUILD_VERSION=${BUILD_VERSION} \
-		--build-arg GO_BUILD_LDFLAGS="${GO_BUILD_LDFLAGS}"
-
-## docker/run: run the application docker image
-.PHONY: docker/run
-docker/run: docker/build
-	@docker run --rm --name ${APP_NAME} -t ${DOCKER_IMAGE}:latest
-
 ## build: build the application
 .PHONY: build
 build:
@@ -92,6 +73,17 @@ build:
 .PHONY: run
 run: build
 	@${BUILD_DIR}/${APP_NAME} --version
+
+
+## docker/build: build the application docker image
+.PHONY: docker/build
+docker/build:
+	$(GORELEASER_CMD) release --clean --snapshot --skip=archive,before
+
+## docker/run: run the application docker image
+.PHONY: docker/run
+docker/run:
+	@docker run --rm --name ${APP_NAME} -t ${DOCKER_IMAGE}:latest
 
 ## release/tag: tag latest commit for release
 .PHONY: release/tag 
