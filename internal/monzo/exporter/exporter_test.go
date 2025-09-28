@@ -151,6 +151,67 @@ func TestExportMonzoTransactions(t *testing.T) {
 				},
 			},
 		},
+		"includes split transaction": {
+			transactions: []*monzo.Transaction{
+				{
+					Description: "settled",
+					SettledAt:   &now,
+					CreatedAt:   now,
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Merchant: &monzo.Merchant{
+						Name: "Tesco",
+					},
+					CounterParty: &monzo.CounterParty{
+						Name: "James",
+					},
+				},
+				{
+					Description: "settled",
+					SettledAt:   &now,
+					CreatedAt:   now,
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Merchant: &monzo.Merchant{
+						Name: "Sainsburys",
+					},
+					CounterParty: &monzo.CounterParty{
+						Name: "James",
+					},
+					UserNotes: "Beers",
+				},
+			},
+			expectedTransactions: []*domain.Transaction{
+				{
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Reference: "James",
+					Category:  "",
+					CreatedAt: now,
+					IsDeposit: false,
+					BankName:  "Monzo",
+					Notes:     "Tesco",
+				},
+				{
+					Amount: domain.Money{
+						MinorUnit: 276,
+						Currency:  "GBP",
+					},
+					Reference: "James",
+					Category:  "",
+					CreatedAt: now,
+					IsDeposit: false,
+					BankName:  "Monzo",
+					Notes:     "Beers", // should not overwrite notes when we've set them in the app
+				},
+			},
+		},
 	}
 
 	for name, test := range tests {
