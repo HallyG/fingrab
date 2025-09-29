@@ -17,8 +17,7 @@ jobs:
       issues: write
     runs-on: ubuntu-24.04
     steps:
-      - name: Label
-        uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b
+      - uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b
         with:
           configuration-path: .github/labeller.yml
           sync-labels: true
