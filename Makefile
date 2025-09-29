@@ -1,7 +1,8 @@
+APP_NAME := fingrab
+
 PWD := $(shell pwd)
 BUILD_DIR := ${PWD}/build
 
-APP_NAME := fingrab
 DOCKER_IMAGE := ghcr.io/hallyg/${APP_NAME}
 
 BUILD_VERSION := $(shell git describe --tags --exact-match 2>/dev/null || git rev-parse --short=8 --verify HEAD)
@@ -67,8 +68,10 @@ audit: clean lint
 ## build: build the application
 .PHONY: build
 build:
-	@echo "GO_BUILD_LDFLAGS: $(GO_BUILD_LDFLAGS)"
-	@$(GO_CMD) build ${GO_BUILD_TAGS} -o ${BUILD_DIR}/${APP_NAME} -trimpath -mod=readonly -ldflags="$(GO_BUILD_LDFLAGS)" ${GO_PKG_MAIN}
+	@$(GO_CMD) build ${GO_BUILD_TAGS} \
+		-o ${BUILD_DIR}/${APP_NAME} \
+		-trimpath -mod=readonly \
+		-ldflags="$(GO_BUILD_LDFLAGS)" .
 
 ## run: run the application	
 .PHONY: run
