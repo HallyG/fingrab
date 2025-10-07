@@ -49,7 +49,7 @@ func getAuthToken(ctx context.Context, opts *exportOptions, exportType export.Ex
 		return authToken, nil
 	}
 
-	logger.DebugContext(ctx, "no auth token found, starting OAuth flow")
+	logger.WarnContext(ctx, "no auth token found, starting OAuth flow")
 	return startOAuth(ctx, exportType)
 }
 

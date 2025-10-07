@@ -35,7 +35,6 @@ clean:
 	@rm -f ${BUILD_DIR}/${APP_NAME};
 	@rm -f ${GO_COVERAGE_FILE} ${GO_COVERAGE_TEXT_FILE} ${GO_COVERAGE_HTML_FILE}
 	@$(GO_CMD) clean
-	@$(GORELEASER_CMD) release --clean
 
 ## test: run tests
 .PHONY: test
@@ -77,7 +76,6 @@ build:
 .PHONY: run
 run: build
 	@${BUILD_DIR}/${APP_NAME} --version
-
 
 ## docker/build: build the application docker image
 .PHONY: docker/build
