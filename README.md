@@ -83,6 +83,11 @@ fingrab export monzo --token <monzo-api-token> --start 2025-03-01 --end 2025-03-
 export MONZO_TOKEN=<monzo-api-token>
 fingrab export monzo --start 2025-03-01 --end 2025-03-31
 
+# API Auth with OAuth2 env var
+export MONZO_CLIENT_ID=<monzo-client-id>
+export MONZO_CLIENT_SECRET=<monzo-client-secret>
+fingrab export monzo --start 2025-03-01 --end 2025-03-31
+
 # Exporting to Moneydance format
 fingrab export monzo --token <monzo-api-token> --start 2025-03-01 --end 2025-03-31 --format moneydance
 
@@ -100,6 +105,11 @@ fingrab export starling --token <starling-api-token> --start 2025-03-01 --end 20
 
 # API Auth with env var
 export STARLING_TOKEN=<starling-api-token>
+fingrab export starling --start 2025-03-01 --end 2025-03-31
+
+# API Auth with OAuth2 env var
+export STARLING_CLIENT_ID=<starling-client-id>
+export STARLING_CLIENT_SECRET=<starling-client-secret>
 fingrab export starling --start 2025-03-01 --end 2025-03-31
 
 # Exporting to Moneydance format
