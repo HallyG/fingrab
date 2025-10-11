@@ -23,6 +23,7 @@ GOLANGCI_CMD := go tool golangci-lint
 GOLANGCI_ARGS ?= --fix --concurrency=4
 GOLANGCI_FILES ?= ${GO_PKGS}
 GORELEASER_CMD := @goreleaser
+GOVULN_CMD := go tool govulncheck
 
 .PHONY: help
 help:
