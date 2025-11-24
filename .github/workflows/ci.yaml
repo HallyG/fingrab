@@ -13,7 +13,7 @@ jobs:
           go-version-file: "go.mod"
           cache: true
           cache-dependency-path: go.sum
-      - uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47
+      - uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601
         with:
           version: v2.4.0
           args: --verbose --timeout=3m
