@@ -6,14 +6,14 @@ require (
 	github.com/Rhymond/go-money v1.0.15
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/google/uuid v1.6.0
-	github.com/int128/oauth2cli v1.17.0
+	github.com/int128/oauth2cli v1.18.0
 	github.com/lmittmann/tint v1.1.2
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/samber/lo v1.51.0
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/oauth2 v0.32.0
-	golang.org/x/sync v0.14.0
+	golang.org/x/oauth2 v0.33.0
+	golang.org/x/sync v0.18.0
 	resty.dev/v3 v3.0.0-beta.3
 )
 
@@ -105,7 +105,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/int128/listener v1.2.0 // indirect
+	github.com/int128/listener v1.3.0 // indirect
 	github.com/jgautheron/goconst v1.8.1 // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jjti/go-spancheck v0.6.4 // indirect
