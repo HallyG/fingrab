@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := monzoexporter.New(&StubMonzoClient{})
+		exporter, err := monzoexporter.New(&StubClient{})
 
 		require.NoError(t, err)
 		require.NotNil(t, exporter)
@@ -37,7 +37,48 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestExportMonzoTransactions(t *testing.T) {
+func TestExportAccounts(t *testing.T) {
+	t.Parallel()
+
+	accountID := "acc_12345"
+
+	now := time.Now()
+
+	setup := func(t *testing.T) export.Exporter {
+		t.Helper()
+
+		accounts := []*monzo.Account{
+			{
+				ID:        monzo.AccountID(accountID),
+				CreatedAt: now,
+				Type:      "uk_retail",
+			},
+		}
+
+		client := &StubClient{
+			Accounts: accounts,
+		}
+
+		exporter, err := monzoexporter.New(client)
+		require.NoError(t, err)
+
+		return exporter
+	}
+
+	t.Run("returns accounts", func(t *testing.T) {
+		t.Parallel()
+
+		accounts, err := setup(t).ExportAccounts(t.Context(), export.AccountOptions{})
+		require.NoError(t, err)
+
+		require.Len(t, accounts, 1)
+		require.Equal(t, string(accountID), accounts[0].ID)
+		require.Equal(t, "uk_retail", accounts[0].Type)
+		require.WithinDuration(t, now, accounts[0].CreatedAt, time.Second)
+	})
+}
+
+func TestExportTransactions(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -53,7 +94,7 @@ func TestExportMonzoTransactions(t *testing.T) {
 		}
 		pots := []*monzo.Pot{}
 
-		client := &StubMonzoClient{
+		client := &StubClient{
 			Accounts:     accounts,
 			Pots:         pots,
 			Transactions: [][]*monzo.Transaction{txns},
@@ -221,12 +262,14 @@ func TestExportMonzoTransactions(t *testing.T) {
 			account, exporter := setup(t, test.transactions)
 			res, err := exporter.ExportTransactions(
 				t.Context(),
-				export.Options{
+				export.TransactionOptions{
 					StartDate: time.Now().Add(-24 * time.Hour),
 					EndDate:   time.Now(),
 					AccountID: string(account.ID),
-					Timeout:   10 * time.Second,
-					AuthToken: "test-token",
+					Options: export.Options{
+						Timeout:   10 * time.Second,
+						AuthToken: "test-token",
+					},
 				},
 			)
 
@@ -236,9 +279,9 @@ func TestExportMonzoTransactions(t *testing.T) {
 	}
 }
 
-var _ monzo.Client = (*StubMonzoClient)(nil)
+var _ monzo.Client = (*StubClient)(nil)
 
-type StubMonzoClient struct {
+type StubClient struct {
 	Accounts         []*monzo.Account
 	Pots             []*monzo.Pot
 	Transactions     [][]*monzo.Transaction
@@ -248,38 +291,38 @@ type StubMonzoClient struct {
 	callCount        int
 }
 
-func (s *StubMonzoClient) FetchTransactionsSince(ctx context.Context, opts monzo.FetchTransactionOptions) ([]*monzo.Transaction, error) {
-	if s.FetchTxnsErr != nil {
-		return nil, s.FetchTxnsErr
+func (c *StubClient) FetchTransactionsSince(ctx context.Context, opts monzo.FetchTransactionOptions) ([]*monzo.Transaction, error) {
+	if c.FetchTxnsErr != nil {
+		return nil, c.FetchTxnsErr
 	}
 
-	s.callCount++
-	index := s.callCount - 1
+	c.callCount++
+	index := c.callCount - 1
 
 	// If we've exceeded the number of predefined responses, return empty
-	if index >= len(s.Transactions) {
+	if index >= len(c.Transactions) {
 		return nil, nil
 	}
 
-	return s.Transactions[index], nil
+	return c.Transactions[index], nil
 }
 
-func (s *StubMonzoClient) FetchTransaction(ctx context.Context, transactionID monzo.TransactionID) (*monzo.Transaction, error) {
+func (c *StubClient) FetchTransaction(ctx context.Context, transactionID monzo.TransactionID) (*monzo.Transaction, error) {
 	return &monzo.Transaction{}, nil
 }
 
-func (s *StubMonzoClient) FetchAccounts(ctx context.Context) ([]*monzo.Account, error) {
-	if s.FetchAccountsErr != nil {
-		return nil, s.FetchAccountsErr
+func (c *StubClient) FetchAccounts(ctx context.Context) ([]*monzo.Account, error) {
+	if c.FetchAccountsErr != nil {
+		return nil, c.FetchAccountsErr
 	}
 
-	return s.Accounts, nil
+	return c.Accounts, nil
 }
 
-func (s *StubMonzoClient) FetchPots(ctx context.Context, accountID monzo.AccountID) ([]*monzo.Pot, error) {
-	if s.FetchPotErr != nil {
-		return nil, s.FetchPotErr
+func (c *StubClient) FetchPots(ctx context.Context, accountID monzo.AccountID) ([]*monzo.Pot, error) {
+	if c.FetchPotErr != nil {
+		return nil, c.FetchPotErr
 	}
 
-	return s.Pots, nil
+	return c.Pots, nil
 }

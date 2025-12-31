@@ -1,0 +1,11 @@
+# Using token flag
+%s
+
+# Using environment variable
+export %s_TOKEN=<api-token>
+%s
+
+# Using OAuth2
+export %s_CLIENT_ID=<client-id>
+export %s_CLIENT_SECRET=<client-secret>
+%s

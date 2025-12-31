@@ -32,13 +32,13 @@ var bankConfigs = map[export.ExportType]oauth.Config{
 	},
 }
 
-func getAuthToken(ctx context.Context, opts *exportOptions, exportType export.ExportType) (string, error) {
+func getAuthToken(ctx context.Context, exportType export.ExportType, token string) (string, error) {
 	logger := log.FromContext(ctx)
 
 	// Try token from CLI flag first
-	if opts.AuthToken != "" {
+	if token != "" {
 		logger.DebugContext(ctx, "using auth token from cli flag")
-		return opts.AuthToken, nil
+		return token, nil
 	}
 
 	// Try token from environment variable

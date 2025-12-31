@@ -46,7 +46,22 @@ func (s *TransactionExporter) MaxDateRange() time.Duration {
 	return starlingMaxDateRange
 }
 
-func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
+func (s *TransactionExporter) ExportAccounts(ctx context.Context, opts export.AccountOptions) ([]*domain.Account, error) {
+	accounts, err := s.api.FetchAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch accounts: %w", err)
+	}
+
+	return lo.Map(accounts, func(account *starling.Account, _ int) *domain.Account {
+		return &domain.Account{
+			ID:        account.ID.String(),
+			Type:      account.Type,
+			CreatedAt: account.CreatedAt,
+		}
+	}), nil
+}
+
+func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.TransactionOptions) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
