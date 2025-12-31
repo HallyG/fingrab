@@ -24,11 +24,33 @@ var (
 	BuildShortSHA = `(missing)`
 
 	rootCmd = &cobra.Command{
-		Use:               "fingrab",
-		Short:             "Financial data exporter",
-		Long:              `A CLI for exporting financial data from various banks.`,
-		PersistentPreRunE: setupLogger,
-		Version:           fmt.Sprintf("%s (%s)", BuildVersion, BuildShortSHA),
+		Use:     "fingrab",
+		Short:   "Financial data exporter",
+		Long:    `A CLI for exporting financial data from various banks.`,
+		Version: fmt.Sprintf("%s (%s)", BuildVersion, BuildShortSHA),
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			noColour, _ := cmd.Flags().GetBool("no-colour")
+
+			handler := log.WithColourTextHandler()
+			if noColour {
+				handler = log.WithTextHandler()
+			}
+
+			logger := log.New(
+				log.WithWriter(cmd.ErrOrStderr()),
+				log.WithVerbose(verbose),
+				handler,
+				log.WithAttrs(
+					slog.String("build.version", BuildVersion),
+					slog.String("build.sha", BuildShortSHA),
+				),
+			)
+
+			ctx := log.WithContext(cmd.Context(), logger)
+			cmd.SetContext(ctx)
+			return nil
+		},
 	}
 	//go:embed cmd_example.txt
 	cmdExample string
@@ -85,38 +107,5 @@ func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Wri
 	rootCmd.SetErr(errOutput)
 	rootCmd.SetArgs(args[1:])
 
-	verbose, _ := rootCmd.Flags().GetBool("verbose")
-	logger := log.New(
-		log.WithWriter(errOutput),
-		log.WithVerbose(verbose),
-		log.WithAttrs(
-			slog.String("build.version", BuildVersion),
-			slog.String("build.sha", BuildShortSHA),
-		),
-	)
-	return rootCmd.ExecuteContext(log.WithContext(ctx, logger))
-}
-
-func setupLogger(cmd *cobra.Command, _ []string) error {
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	noColour, _ := cmd.Flags().GetBool("no-colour")
-
-	handlerOpt := log.WithColourTextHandler()
-	if noColour {
-		handlerOpt = log.WithTextHandler()
-	}
-
-	logger := log.New(
-		log.WithWriter(cmd.ErrOrStderr()),
-		log.WithVerbose(verbose),
-		handlerOpt,
-		log.WithAttrs(
-			slog.String("build.version", BuildVersion),
-			slog.String("build.sha", BuildShortSHA),
-		),
-	)
-
-	ctx := log.WithContext(cmd.Context(), logger)
-	cmd.SetContext(ctx)
-	return nil
+	return rootCmd.ExecuteContext(ctx)
 }
