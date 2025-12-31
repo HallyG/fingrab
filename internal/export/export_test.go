@@ -2,7 +2,6 @@ package export_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -75,21 +74,6 @@ func TestBearerToken(t *testing.T) {
 
 func TestNewExporter(t *testing.T) {
 	t.Parallel()
-
-	export.Register(ExportTypeStub, func(opts export.Options) (export.Exporter, error) {
-		if opts.AuthToken == "12345" {
-			return nil, errors.New("invalid auth token")
-		}
-
-		return &StubExporter{
-			transactions: []*domain.Transaction{
-				{},
-			},
-			accounts: []*domain.Account{
-				{},
-			},
-		}, nil
-	})
 
 	t.Run("returns error for unknown type", func(t *testing.T) {
 		t.Parallel()

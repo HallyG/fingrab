@@ -1,14 +1,31 @@
 package export_test
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAccounts(t *testing.T) {
 	t.Parallel()
+
+	export.Register(ExportTypeStub, func(opts export.Options) (export.Exporter, error) {
+		if opts.AuthToken == "12345" {
+			return nil, errors.New("invalid auth token")
+		}
+
+		return &StubExporter{
+			transactions: []*domain.Transaction{
+				{},
+			},
+			accounts: []*domain.Account{
+				{},
+			},
+		}, nil
+	})
 
 	tests := map[string]struct {
 		opts                export.AccountOptions
