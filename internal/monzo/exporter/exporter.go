@@ -46,6 +46,21 @@ func (m *TransactionExporter) MaxDateRange() time.Duration {
 	return monzoMaxDateRange
 }
 
+func (m *TransactionExporter) ExportAccounts(ctx context.Context) ([]*domain.Account, error) {
+	accounts, err := m.api.FetchAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch accounts: %w", err)
+	}
+
+	return lo.Map(accounts, func(account *monzo.Account, _ int) *domain.Account {
+		return &domain.Account{
+			ID:        string(account.ID),
+			Type:      account.Type,
+			CreatedAt: account.CreatedAt,
+		}
+	}), nil
+}
+
 func (m *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)

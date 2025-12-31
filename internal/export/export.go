@@ -21,6 +21,7 @@ type (
 		// A zero duration indicates no limit.
 		MaxDateRange() time.Duration
 		ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error)
+		ExportAccounts(ctx context.Context) ([]*domain.Account, error)
 	}
 )
 

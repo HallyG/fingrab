@@ -167,6 +167,7 @@ var _ export.Exporter = (*StubExporter)(nil)
 
 type StubExporter struct {
 	transactions []*domain.Transaction
+	accounts     []*domain.Account
 	err          error
 }
 
@@ -176,6 +177,10 @@ func (s *StubExporter) Type() export.ExportType {
 
 func (s *StubExporter) MaxDateRange() time.Duration {
 	return 24 * time.Hour
+}
+
+func (s *StubExporter) ExportAccounts(ctx context.Context) ([]*domain.Account, error) {
+	return s.accounts, s.err
 }
 
 func (s *StubExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
