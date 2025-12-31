@@ -15,6 +15,8 @@ import (
 	"github.com/HallyG/fingrab/internal/starling"
 	starlingexporter "github.com/HallyG/fingrab/internal/starling/exporter"
 	"github.com/spf13/cobra"
+
+	_ "embed"
 )
 
 var (
@@ -28,6 +30,8 @@ var (
 		PersistentPreRunE: setupLogger,
 		Version:           fmt.Sprintf("%s (%s)", BuildVersion, BuildShortSHA),
 	}
+	//go:embed cmd_example.txt
+	cmdExample string
 )
 
 func getBankCommand(exportType export.ExportType) *cobra.Command {

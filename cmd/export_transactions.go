@@ -48,17 +48,13 @@ func newTransactionsCommand(exporterType export.ExportType) *cobra.Command {
 
 			return nil
 		},
-		Example: fmt.Sprintf(`# Using token flag
-fingrab %s transactions --token <api-token> --start 2025-03-01 --end 2025-03-31
-
-# Using environment variable
-export %s_TOKEN=<api-token>
-fingrab %s transactions --start 2025-03-01 --end 2025-03-31
-
-# Using OAuth2
-export %s_CLIENT_ID=<client-id>
-export %s_CLIENT_SECRET=<client-secret>
-fingrab %s transactions --start 2025-03-01 --end 2025-03-31`, lowerName, upperName, lowerName, upperName, upperName, lowerName),
+		Example: fmt.Sprintf(cmdExample,
+			fmt.Sprintf("fingrab %s transactions --token <api-token> --start 2025-03-01 --end 2025-03-31", lowerName),
+			upperName,
+			fmt.Sprintf("fingrab %s transactions --start 2025-03-01 --end 2025-03-31", lowerName),
+			upperName, upperName,
+			fmt.Sprintf("fingrab %s transactions --start 2025-03-01 --end 2025-03-31", lowerName),
+		),
 	}
 
 	allFormats := strings.Join(lo.Map(format.All(), func(item format.FormatType, index int) string {
@@ -67,7 +63,7 @@ fingrab %s transactions --start 2025-03-01 --end 2025-03-31`, lowerName, upperNa
 
 	cmd.Flags().StringVar(&opts.StartDate, "start", "", "Start date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.EndDate, "end", "", "End date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (alternative: set %s_TOKEN environment variable, or for OAuth2 set %s_CLIENT_ID and %s_CLIENT_SECRET environment variables)", upperName, upperName, upperName))
+	cmd.Flags().StringVar(&opts.AuthToken, "token", "", "API auth token")
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
 	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", allFormats))
