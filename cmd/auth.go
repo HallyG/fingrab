@@ -32,7 +32,7 @@ var bankConfigs = map[export.ExportType]oauth.Config{
 	},
 }
 
-func getAuthToken(ctx context.Context, opts *exportOptions, exportType export.ExportType) (string, error) {
+func getAuthToken(ctx context.Context, opts *exportTransactionOptions, exportType export.ExportType) (string, error) {
 	logger := log.FromContext(ctx)
 
 	// Try token from CLI flag first

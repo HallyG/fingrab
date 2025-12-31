@@ -30,6 +30,17 @@ var (
 	}
 )
 
+func getBankCommand(exportType export.ExportType) *cobra.Command {
+	switch exportType {
+	case monzoexporter.ExportTypeMonzo:
+		return monzoCmd
+	case starlingexporter.ExportTypeStarling:
+		return starlingCmd
+	default:
+		return nil
+	}
+}
+
 func init() {
 	export.Register(starlingexporter.ExportTypeStarling, func(opts export.Options) (export.Exporter, error) {
 		client := &http.Client{
@@ -56,11 +67,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("no-colour", "", false, "disable coloured output")
 
 	for _, exportType := range export.All() {
-		cmd := newExportCommand(exportType)
-		exportCmd.AddCommand(cmd)
+		bankCmd := getBankCommand(exportType)
+		if bankCmd != nil {
+			bankCmd.AddCommand(newTransactionsCommand(exportType))
+			bankCmd.AddCommand(newAccountsCommand(exportType))
+			rootCmd.AddCommand(bankCmd)
+		}
 	}
-
-	rootCmd.AddCommand(exportCmd)
 }
 
 func Main(ctx context.Context, args []string, output io.Writer, errOutput io.Writer) error {

@@ -19,62 +19,55 @@ import (
 const (
 	timeFormat = "2006-01-02"
 	timeout    = 5 * time.Second
-	day        = 24 * time.Hour
 )
 
-var (
-	exportCmd = &cobra.Command{
-		Use:   "export",
-		Short: "Export transactions between two dates",
-		Long:  "Export banking transactions for the specified date range from supported providers",
-	}
-)
-
-type exportOptions struct {
-	StartDateStr string
-	EndDateStr   string
-	AuthToken    string
-	Timeout      time.Duration
-	AccountID    string
-	Format       string
+type exportTransactionOptions struct {
+	StartDate string
+	EndDate   string
+	AuthToken string
+	Timeout   time.Duration
+	AccountID string
+	Format    string
 }
 
-func newExportCommand(exporterType export.ExportType) *cobra.Command {
-	opts := &exportOptions{}
+func newTransactionsCommand(exporterType export.ExportType) *cobra.Command {
+	opts := &exportTransactionOptions{}
 	name := string(exporterType)
+	lowerName := strings.ToLower(name)
+	upperName := strings.ToUpper(name)
 
 	cmd := &cobra.Command{
-		Use:   strings.ToLower(name),
+		Use:   "transactions",
 		Short: "Export transactions from " + name,
 		Long:  fmt.Sprintf("Export banking transactions from %s for the specified date range.", name),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			err := runExport(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
+			err := runExportTransactions(cmd.Context(), cmd.OutOrStdout(), opts, exporterType)
 			if err != nil {
-				return fmt.Errorf("%s: %w", strings.ToLower(name), err)
+				return fmt.Errorf("%s: %w", lowerName, err)
 			}
 
 			return nil
 		},
 		Example: fmt.Sprintf(`# Using token flag
-fingrab export %s --token <api-token> --start 2025-03-01 --end 2025-03-31
-  
+fingrab %s transactions --token <api-token> --start 2025-03-01 --end 2025-03-31
+
 # Using environment variable
 export %s_TOKEN=<api-token>
-fingrab export %s --start 2025-03-01 --end 2025-03-31
-  
+fingrab %s transactions --start 2025-03-01 --end 2025-03-31
+
 # Using OAuth2
 export %s_CLIENT_ID=<client-id>
 export %s_CLIENT_SECRET=<client-secret>
-fingrab export %s --start 2025-03-01 --end 2025-03-31`, strings.ToLower(name), strings.ToUpper(name), strings.ToLower(name), strings.ToUpper(name), strings.ToUpper(name), strings.ToLower(name)),
+fingrab %s transactions --start 2025-03-01 --end 2025-03-31`, lowerName, upperName, lowerName, upperName, upperName, lowerName),
 	}
 
 	allFormats := strings.Join(lo.Map(format.All(), func(item format.FormatType, index int) string {
 		return fmt.Sprintf("%v", item)
 	}), ", ")
 
-	cmd.Flags().StringVar(&opts.StartDateStr, "start", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.EndDateStr, "end", "", "End date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (alternative: set %s_TOKEN environment variable, or for OAuth2 set %s_CLIENT_ID and %s_CLIENT_SECRET environment variables)", strings.ToUpper(name), strings.ToUpper(name), strings.ToUpper(name)))
+	cmd.Flags().StringVar(&opts.StartDate, "start", "", "Start date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.EndDate, "end", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.AuthToken, "token", "", fmt.Sprintf("API authentication token (alternative: set %s_TOKEN environment variable, or for OAuth2 set %s_CLIENT_ID and %s_CLIENT_SECRET environment variables)", upperName, upperName, upperName))
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
 	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", allFormats))
@@ -88,13 +81,13 @@ func parseDate(str string) (time.Time, error) {
 	return time.Parse(timeFormat, str)
 }
 
-func runExport(ctx context.Context, output io.Writer, opts *exportOptions, exportType export.ExportType) error {
+func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTransactionOptions, exportType export.ExportType) error {
 	logger := log.FromContext(ctx).With(
 		slog.String("bank", string(exportType)),
 	)
 	ctx = log.WithContext(ctx, logger)
 
-	startDate, err := parseDate(opts.StartDateStr)
+	startDate, err := parseDate(opts.StartDate)
 	if err != nil {
 		return fmt.Errorf("start date: %w", err)
 	}
@@ -102,8 +95,8 @@ func runExport(ctx context.Context, output io.Writer, opts *exportOptions, expor
 	now := time.Now().Truncate(24 * time.Hour)
 	endDate := now.Add(24 * time.Hour)
 
-	if opts.EndDateStr != "" {
-		endDate, err = parseDate(opts.EndDateStr)
+	if opts.EndDate != "" {
+		endDate, err = parseDate(opts.EndDate)
 		if err != nil {
 			return fmt.Errorf("end date: %w", err)
 		}
