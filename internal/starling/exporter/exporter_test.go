@@ -189,8 +189,10 @@ func TestExportTransactions(t *testing.T) {
 				StartDate: time.Now().Add(-24 * time.Hour),
 				EndDate:   time.Now(),
 				AccountID: accountID.String(),
-				Timeout:   10 * time.Second,
-				AuthToken: "test-token",
+				Options: export.Options{
+					Timeout:   10 * time.Second,
+					AuthToken: "test-token",
+				},
 			},
 		)
 		require.NoError(t, err)

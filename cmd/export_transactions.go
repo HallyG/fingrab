@@ -123,8 +123,10 @@ func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTr
 		StartDate: startDate,
 		EndDate:   endDate,
 		AccountID: opts.AccountID,
-		AuthToken: authToken,
-		Timeout:   opts.Timeout,
+		Options: export.Options{
+			AuthToken: authToken,
+			Timeout:   opts.Timeout,
+		},
 	}
 
 	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)

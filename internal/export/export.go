@@ -14,7 +14,7 @@ import (
 
 type (
 	ExportType          string
-	ExporterConstructor func(opts TransactionOptions) (Exporter, error)
+	ExporterConstructor func(opts Options) (Exporter, error)
 	Exporter            interface {
 		Type() ExportType
 		// MaxDateRange returns the maximum allowed date range for fetching transactions.
@@ -25,18 +25,13 @@ type (
 	}
 )
 
-type TransactionOptions struct {
-	AccountID string
-	EndDate   time.Time
-	StartDate time.Time
+type Options struct {
 	AuthToken string
 	Timeout   time.Duration
 }
 
-func (o TransactionOptions) Validate(ctx context.Context) error {
+func (o Options) Validate(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &o,
-		validation.Field(&o.StartDate, validation.Required.Error("is required")),
-		validation.Field(&o.EndDate, validation.Required.Error("is required")),
 		validation.Field(&o.AuthToken, validation.Required.Error("is required")),
 	)
 }
@@ -47,7 +42,7 @@ func (o TransactionOptions) Validate(ctx context.Context) error {
 //
 //	opts := Options{AuthToken: "abc123"}
 //	token := opts.BearerAuthToken() // Returns "Bearer abc123"
-func (o TransactionOptions) BearerAuthToken() string {
+func (o Options) BearerAuthToken() string {
 	token := strings.TrimSpace(o.AuthToken)
 	if !strings.HasPrefix(token, "Bearer ") {
 		token = "Bearer " + token
@@ -70,7 +65,7 @@ func Register(exportType ExportType, constructor ExporterConstructor) {
 	registry[exportType] = constructor
 }
 
-func NewExporter(exportType ExportType, opts TransactionOptions) (Exporter, error) {
+func NewExporter(exportType ExportType, opts Options) (Exporter, error) {
 	registryLock.RLock()
 	defer registryLock.RUnlock()
 
@@ -100,41 +95,4 @@ func All() []ExportType {
 	slices.Sort(exportTypes)
 
 	return exportTypes
-}
-
-// Transactions fetches transactions for the specified export type and options.
-// It validates the options, checks the specificed date range against the exporter's maximum, and retrieves the transactions.
-//
-// Example:
-//
-//	ctx := context.Background()
-//	opts := Options{AccountID: "123", StartDate: time.Now().AddDate(0, 0, -7), EndDate: time.Now(), AuthToken: "token"}
-//	transactions, err := Transactions(ctx, "csv", opts)
-//	if err != nil {
-//	    // Handle error
-//	}
-func Transactions(ctx context.Context, exportType ExportType, opts TransactionOptions) ([]*domain.Transaction, error) {
-	if err := opts.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
-	}
-
-	exporter, err := NewExporter(exportType, opts)
-	if err != nil {
-		return nil, fmt.Errorf("exporter: %w", err)
-	}
-
-	maxDateRange := exporter.MaxDateRange()
-	days := (opts.EndDate.Sub(opts.StartDate).Hours()) / 24
-	if maxDateRange > 0 && opts.EndDate.Sub(opts.StartDate) > maxDateRange {
-		hours := maxDateRange.Hours()
-		maxDays := hours / 24
-		return nil, fmt.Errorf("date range %d days is too long, max is %d days", int(days), int(maxDays))
-	}
-
-	transactions, err := exporter.ExportTransactions(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("transctions: %w", err)
-	}
-
-	return transactions, nil
 }
