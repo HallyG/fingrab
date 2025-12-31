@@ -68,7 +68,7 @@ func TestExportAccounts(t *testing.T) {
 	t.Run("returns accounts", func(t *testing.T) {
 		t.Parallel()
 
-		accounts, err := setup(t).ExportAccounts(t.Context())
+		accounts, err := setup(t).ExportAccounts(t.Context(), export.AccountOptions{})
 		require.NoError(t, err)
 
 		require.Len(t, accounts, 1)
