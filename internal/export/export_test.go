@@ -26,29 +26,29 @@ func TestBearerToken(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		input  export.Options
+		input  export.TransactionOptions
 		output string
 	}{
 		"whitespace removed and bearer is added": {
-			input: export.Options{
+			input: export.TransactionOptions{
 				AuthToken: " eyJ ",
 			},
 			output: "Bearer eyJ",
 		},
 		"whitespace removed and bearer is not added": {
-			input: export.Options{
+			input: export.TransactionOptions{
 				AuthToken: " Bearer eyJ ",
 			},
 			output: "Bearer eyJ",
 		},
 		"bearer is added": {
-			input: export.Options{
+			input: export.TransactionOptions{
 				AuthToken: "eyJ",
 			},
 			output: "Bearer eyJ",
 		},
 		"bearer is not added": {
-			input: export.Options{
+			input: export.TransactionOptions{
 				AuthToken: "Bearer eyJ",
 			},
 			output: "Bearer eyJ",
@@ -71,7 +71,7 @@ func TestNewExporter(t *testing.T) {
 	t.Run("returns error for unknown type", func(t *testing.T) {
 		t.Parallel()
 
-		exporter, err := export.NewExporter(export.ExportType("wow"), export.Options{})
+		exporter, err := export.NewExporter(export.ExportType("wow"), export.TransactionOptions{})
 
 		require.Nil(t, exporter)
 		require.ErrorContains(t, err, "unsupported type: wow")
@@ -81,7 +81,7 @@ func TestNewExporter(t *testing.T) {
 func TestTransactions(t *testing.T) {
 	t.Parallel()
 
-	export.Register(ExportTypeStub, func(opts export.Options) (export.Exporter, error) {
+	export.Register(ExportTypeStub, func(opts export.TransactionOptions) (export.Exporter, error) {
 		if opts.AuthToken == "12345" {
 			return nil, errors.New("invalid auth token")
 		}
@@ -94,12 +94,12 @@ func TestTransactions(t *testing.T) {
 	})
 
 	tests := map[string]struct {
-		opts                    export.Options
+		opts                    export.TransactionOptions
 		expectedErrMsg          string
 		expectedTransactionsLen int
 	}{
 		"success": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				EndDate:   time.Now(),
 				StartDate: time.Now(),
 				AuthToken: "token",
@@ -107,28 +107,28 @@ func TestTransactions(t *testing.T) {
 			expectedTransactionsLen: 1,
 		},
 		"returns error when invalid end date": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				StartDate: time.Now(),
 				AuthToken: "token",
 			},
 			expectedErrMsg: "invalid options: EndDate: is required.",
 		},
 		"returns error when invalid start date": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				EndDate:   time.Now(),
 				AuthToken: "token",
 			},
 			expectedErrMsg: "invalid options: StartDate: is required.",
 		},
 		"returns error when invalid token": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				EndDate:   time.Now(),
 				StartDate: time.Now(),
 			},
 			expectedErrMsg: "invalid options: AuthToken: is required.",
 		},
 		"returns error when invalid exporter": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				EndDate:   time.Now(),
 				StartDate: time.Now(),
 				AuthToken: "12345",
@@ -136,7 +136,7 @@ func TestTransactions(t *testing.T) {
 			expectedErrMsg: "exporter: constructor: invalid auth token",
 		},
 		"returns error when date range too long": {
-			opts: export.Options{
+			opts: export.TransactionOptions{
 				StartDate: time.Now().Add(-48 * time.Hour),
 				EndDate:   time.Now(),
 				AuthToken: "token",
@@ -183,6 +183,6 @@ func (s *StubExporter) ExportAccounts(ctx context.Context) ([]*domain.Account, e
 	return s.accounts, s.err
 }
 
-func (s *StubExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
+func (s *StubExporter) ExportTransactions(ctx context.Context, opts export.TransactionOptions) ([]*domain.Transaction, error) {
 	return s.transactions, s.err
 }

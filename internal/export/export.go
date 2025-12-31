@@ -14,18 +14,18 @@ import (
 
 type (
 	ExportType          string
-	ExporterConstructor func(opts Options) (Exporter, error)
+	ExporterConstructor func(opts TransactionOptions) (Exporter, error)
 	Exporter            interface {
 		Type() ExportType
 		// MaxDateRange returns the maximum allowed date range for fetching transactions.
 		// A zero duration indicates no limit.
 		MaxDateRange() time.Duration
-		ExportTransactions(ctx context.Context, opts Options) ([]*domain.Transaction, error)
+		ExportTransactions(ctx context.Context, opts TransactionOptions) ([]*domain.Transaction, error)
 		ExportAccounts(ctx context.Context) ([]*domain.Account, error)
 	}
 )
 
-type Options struct {
+type TransactionOptions struct {
 	AccountID string
 	EndDate   time.Time
 	StartDate time.Time
@@ -33,7 +33,7 @@ type Options struct {
 	Timeout   time.Duration
 }
 
-func (o Options) Validate(ctx context.Context) error {
+func (o TransactionOptions) Validate(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &o,
 		validation.Field(&o.StartDate, validation.Required.Error("is required")),
 		validation.Field(&o.EndDate, validation.Required.Error("is required")),
@@ -47,7 +47,7 @@ func (o Options) Validate(ctx context.Context) error {
 //
 //	opts := Options{AuthToken: "abc123"}
 //	token := opts.BearerAuthToken() // Returns "Bearer abc123"
-func (o Options) BearerAuthToken() string {
+func (o TransactionOptions) BearerAuthToken() string {
 	token := strings.TrimSpace(o.AuthToken)
 	if !strings.HasPrefix(token, "Bearer ") {
 		token = "Bearer " + token
@@ -70,7 +70,7 @@ func Register(exportType ExportType, constructor ExporterConstructor) {
 	registry[exportType] = constructor
 }
 
-func NewExporter(exportType ExportType, opts Options) (Exporter, error) {
+func NewExporter(exportType ExportType, opts TransactionOptions) (Exporter, error) {
 	registryLock.RLock()
 	defer registryLock.RUnlock()
 
@@ -113,7 +113,7 @@ func All() []ExportType {
 //	if err != nil {
 //	    // Handle error
 //	}
-func Transactions(ctx context.Context, exportType ExportType, opts Options) ([]*domain.Transaction, error) {
+func Transactions(ctx context.Context, exportType ExportType, opts TransactionOptions) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}

@@ -185,7 +185,7 @@ func TestExportTransactions(t *testing.T) {
 
 		res, err := setup(t).ExportTransactions(
 			t.Context(),
-			export.Options{
+			export.TransactionOptions{
 				StartDate: time.Now().Add(-24 * time.Hour),
 				EndDate:   time.Now(),
 				AccountID: accountID.String(),

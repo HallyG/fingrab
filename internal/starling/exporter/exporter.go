@@ -61,7 +61,7 @@ func (s *TransactionExporter) ExportAccounts(ctx context.Context) ([]*domain.Acc
 	}), nil
 }
 
-func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.Options) ([]*domain.Transaction, error) {
+func (s *TransactionExporter) ExportTransactions(ctx context.Context, opts export.TransactionOptions) ([]*domain.Transaction, error) {
 	if err := opts.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}

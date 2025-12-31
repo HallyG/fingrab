@@ -119,7 +119,7 @@ func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTr
 		return err
 	}
 
-	exportOpts := export.Options{
+	exportOpts := export.TransactionOptions{
 		StartDate: startDate,
 		EndDate:   endDate,
 		AccountID: opts.AccountID,
