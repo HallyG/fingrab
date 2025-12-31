@@ -114,7 +114,7 @@ func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTr
 		return errors.New("end date cannot be more than 1 day in the future")
 	}
 
-	authToken, err := getAuthToken(ctx, opts, exportType)
+	authToken, err := getAuthToken(ctx, exportType, opts.AuthToken)
 	if err != nil {
 		return err
 	}
