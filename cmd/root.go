@@ -96,6 +96,7 @@ func init() {
 		bankCmd := getBankCommand(exportType)
 		if bankCmd != nil {
 			bankCmd.AddCommand(newTransactionsCommand(exportType))
+			bankCmd.AddCommand(newAccountsCommand(exportType))
 			rootCmd.AddCommand(bankCmd)
 		}
 	}
