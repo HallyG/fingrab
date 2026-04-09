@@ -58,3 +58,9 @@ type Transaction struct {
 	BankName  string // The name of the bank the transaction was exported from.
 	Notes     string
 }
+
+type Account struct {
+	ID        string
+	Type      string
+	CreatedAt time.Time
+}
