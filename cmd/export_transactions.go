@@ -71,7 +71,7 @@ func newTransactionsCommand(exporterType export.ExportType) *cobra.Command {
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
 	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID (omit to export all accounts)")
 	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (one of: %s)", allFormats))
-	cmd.Flags().StringVar(&opts.OutputDir, "output-dir", "", fmt.Sprintf("Output each account to a separate file in this directory (e.g. %s_<account-id>.csv)", lowerName))
+	cmd.Flags().StringVar(&opts.OutputDir, "output-dir", "", fmt.Sprintf("Output each account to a separate file in this directory (e.g. %s_<account-id>_<start>_<end>.csv)", lowerName))
 
 	_ = cmd.MarkFlagRequired("start")
 
@@ -154,17 +154,21 @@ func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTr
 
 	if opts.OutputDir != "" {
 		for _, account := range accounts {
-			fileName := fmt.Sprintf("%s_%s.csv", strings.ToLower(string(exportType)), account.ID)
+			fileName := fmt.Sprintf("%s_%s_%s_%s.csv", strings.ToLower(string(exportType)), account.ID, startDate.Format("20060102"), endDate.Format("20060102"))
 			filePath := filepath.Join(opts.OutputDir, fileName)
 
-			f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+			f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) //nolint:gosec // path is constructed from trusted opts.OutputDir and a sanitized filename
 			if err != nil {
 				return fmt.Errorf("create output file: %w", err)
 			}
-			defer f.Close()
 
 			if err := exportToWriter(ctx, f, opts, exportType, account.ID, startDate, endDate, baseOpts); err != nil {
+				_ = f.Close()
 				return err
+			}
+
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("close output file: %w", err)
 			}
 		}
 
