@@ -37,7 +37,7 @@ jobs:
           sanitized_branch_name=$(echo "${GITHUB_REF_NAME}" | tr '/' '-')
           echo "branch_name=${sanitized_branch_name}" >> $GITHUB_OUTPUT
       - name: Upload test coverage
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: coverage-${{ steps.prepare.outputs.branch_name }}-${{ matrix.os }}-${{ github.run_number }}
           path: coverage.txt
