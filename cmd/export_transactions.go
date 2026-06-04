@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/HallyG/fingrab/internal/domain"
 	"github.com/HallyG/fingrab/internal/export"
 	"github.com/HallyG/fingrab/internal/format"
 	"github.com/HallyG/fingrab/internal/log"
@@ -28,6 +31,7 @@ type exportTransactionOptions struct {
 	Timeout   time.Duration
 	AccountID string
 	Format    string
+	OutputDir string
 }
 
 func newTransactionsCommand(exporterType export.ExportType) *cobra.Command {
@@ -65,8 +69,9 @@ func newTransactionsCommand(exporterType export.ExportType) *cobra.Command {
 	cmd.Flags().StringVar(&opts.EndDate, "end", "", "End date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.AuthToken, "token", "", "API auth token")
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", timeout, "API request timeout")
-	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID")
-	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (options: %s,)", allFormats))
+	cmd.Flags().StringVar(&opts.AccountID, "account", "", "Account ID (omit to export all accounts)")
+	cmd.Flags().StringVar(&opts.Format, "format", string(format.FormatTypeMoneyDance), fmt.Sprintf("Output format (one of: %s)", allFormats))
+	cmd.Flags().StringVar(&opts.OutputDir, "output-dir", "", fmt.Sprintf("Output each account to a separate file in this directory (e.g. %s_<account-id>_<start>_<end>.csv)", lowerName))
 
 	_ = cmd.MarkFlagRequired("start")
 
@@ -114,34 +119,109 @@ func runExportTransactions(ctx context.Context, output io.Writer, opts *exportTr
 		return errors.New("end date cannot be more than 1 day in the future")
 	}
 
+	if opts.OutputDir != "" {
+		if _, statErr := os.Stat(opts.OutputDir); os.IsNotExist(statErr) {
+			return fmt.Errorf("output-dir does not exist: %s", opts.OutputDir)
+		}
+	}
+
 	authToken, err := getAuthToken(ctx, exportType, opts.AuthToken)
 	if err != nil {
 		return err
 	}
 
-	exportOpts := export.TransactionOptions{
-		StartDate: startDate,
-		EndDate:   endDate,
-		AccountID: opts.AccountID,
-		Options: export.Options{
-			AuthToken: authToken,
-			Timeout:   opts.Timeout,
-		},
+	baseOpts := export.Options{
+		AuthToken: authToken,
+		Timeout:   opts.Timeout,
 	}
 
+	accounts, err := export.Accounts(ctx, exportType, export.AccountOptions{Options: baseOpts})
+	if err != nil {
+		return fmt.Errorf("accounts: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		return errors.New("no accounts found")
+	}
+
+	accounts = lo.Filter(accounts, func(acct *domain.Account, _ int) bool {
+		if opts.AccountID != "" {
+			return acct.ID == opts.AccountID
+		}
+
+		return true
+	})
+
+	if opts.OutputDir != "" {
+		for _, account := range accounts {
+			fileName := fmt.Sprintf("%s_%s_%s_%s.csv", strings.ToLower(string(exportType)), account.ID, startDate.Format("20060102"), endDate.Format("20060102"))
+			filePath := filepath.Join(opts.OutputDir, fileName)
+
+			f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600) //nolint:gosec // path is constructed from trusted opts.OutputDir and a sanitized filename
+			if err != nil {
+				return fmt.Errorf("create output file: %w", err)
+			}
+
+			if err := exportToWriter(ctx, f, opts, exportType, account.ID, startDate, endDate, baseOpts); err != nil {
+				_ = f.Close()
+				return err
+			}
+
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("close output file: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	// Combined stdout: one header, all accounts' rows, one flush.
 	formatter, err := format.NewFormatter(format.FormatType(opts.Format), output)
 	if err != nil {
 		return fmt.Errorf("formatter: %w", err)
 	}
 
-	transactions, err := export.Transactions(ctx, exportType, exportOpts)
+	if err := formatter.WriteHeader(); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	for _, account := range accounts {
+		transactions, err := export.Transactions(ctx, exportType, export.TransactionOptions{
+			StartDate: startDate,
+			EndDate:   endDate,
+			AccountID: account.ID,
+			Options:   baseOpts,
+		})
+		if err != nil {
+			return fmt.Errorf("export account %s: %w", account.ID, err)
+		}
+
+		for _, t := range transactions {
+			if err := formatter.WriteTransaction(t); err != nil {
+				return fmt.Errorf("write transaction: %w", err)
+			}
+		}
+	}
+
+	return formatter.Flush()
+}
+
+// exportToWriter fetches transactions for one account and writes them to w using format.WriteCollection.
+func exportToWriter(ctx context.Context, w io.Writer, opts *exportTransactionOptions, exportType export.ExportType, accountID string, startDate, endDate time.Time, baseOpts export.Options) error {
+	formatter, err := format.NewFormatter(format.FormatType(opts.Format), w)
+	if err != nil {
+		return fmt.Errorf("formatter: %w", err)
+	}
+
+	transactions, err := export.Transactions(ctx, exportType, export.TransactionOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
+		AccountID: accountID,
+		Options:   baseOpts,
+	})
 	if err != nil {
 		return fmt.Errorf("export: %w", err)
 	}
 
-	if err := format.WriteCollection(formatter, transactions); err != nil {
-		return err
-	}
-
-	return nil
+	return format.WriteCollection(formatter, transactions)
 }
